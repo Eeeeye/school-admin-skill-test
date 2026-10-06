@@ -1,0 +1,55 @@
+{
+	admin off
+	log {
+		format json
+	}
+}
+
+{$PUBLIC_HOST} {
+	encode zstd gzip
+	log {
+		format json
+	}
+	header {
+		-Server
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000"
+	}
+
+	handle /api/* {
+		reverse_proxy {$BACKEND_UPSTREAM:backend:5007}
+	}
+
+	handle /backend-assets/* {
+		uri strip_prefix /backend-assets
+		reverse_proxy {$BACKEND_UPSTREAM:backend:5007}
+	}
+
+	# Only JSON certificate metadata is published; never expose the Kubo API.
+	handle /ipfs/* {
+		@write not method GET HEAD
+		respond @write "Method not allowed" 405
+		header Content-Security-Policy "default-src 'none'; sandbox"
+		reverse_proxy {$IPFS_UPSTREAM:ipfs:8080} {
+			header_up Host localhost
+		}
+	}
+
+	handle /health {
+		respond "ok" 200
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# This listener is loopback-only inside the container, with no host port mapping.
+http://:8081 {
+	bind 127.0.0.1
+	respond /health "ok" 200
+}

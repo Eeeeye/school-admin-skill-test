@@ -1,0 +1,184 @@
+name: school-demo
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "8m"
+      max-file: "3"
+  pids_limit: 256
+  networks:
+    - school
+
+services:
+  postgres:
+    <<: *service-defaults
+    image: postgres:16-alpine
+    mem_limit: 256m
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40", "-c", "work_mem=2MB"]
+    environment:
+      POSTGRES_DB: school_mgmt
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the protected server env file}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./seed_db/tables.sql:/docker-entrypoint-initdb.d/01-tables.sql:ro
+      - ./seed_db/seed-db.sql:/docker-entrypoint-initdb.d/02-seed-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d school_mgmt"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    stop_grace_period: 45s
+
+  backend:
+    <<: *service-defaults
+    image: school-demo-backend:latest
+    build:
+      context: ./backend
+    init: true
+    mem_limit: 384m
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=192
+      PORT: 5007
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/school_mgmt
+      JWT_ACCESS_TOKEN_SECRET: ${JWT_ACCESS_TOKEN_SECRET:?Set JWT_ACCESS_TOKEN_SECRET}
+      JWT_REFRESH_TOKEN_SECRET: ${JWT_REFRESH_TOKEN_SECRET:?Set JWT_REFRESH_TOKEN_SECRET}
+      JWT_ACCESS_TOKEN_TIME_IN_MS: 900000
+      JWT_REFRESH_TOKEN_TIME_IN_MS: 28800000
+      CSRF_TOKEN_SECRET: ${CSRF_TOKEN_SECRET:?Set CSRF_TOKEN_SECRET}
+      CSRF_TOKEN_TIME_IN_MS: 950000
+      EMAIL_VERIFICATION_TOKEN_SECRET: ${EMAIL_VERIFICATION_TOKEN_SECRET:?Set EMAIL_VERIFICATION_TOKEN_SECRET}
+      EMAIL_VERIFICATION_TOKEN_TIME_IN_MS: 18000000
+      PASSWORD_SETUP_TOKEN_SECRET: ${PASSWORD_SETUP_TOKEN_SECRET:?Set PASSWORD_SETUP_TOKEN_SECRET}
+      PASSWORD_SETUP_TOKEN_TIME_IN_MS: 300000
+      MAIL_FROM_USER: ${MAIL_FROM_USER:-noreply@localhost.invalid}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      UI_URL: https://${PUBLIC_HOST:?Set PUBLIC_HOST to a DNS hostname}
+      API_URL: https://${PUBLIC_HOST:?Set PUBLIC_HOST to a DNS hostname}
+      COOKIE_DOMAIN: ""
+      COOKIE_SECURE: "true"
+      TRUSTED_PROXY_CIDRS: 172.30.77.10/32
+      AUTO_MIGRATE: "true"
+      DB_MIGRATIONS_DIR: /migrations
+      CERTIFICATE_RPC_URL: http://blockchain:8545
+      CERTIFICATE_DEPLOYMENT_FILE: /blockchain-deployments/localhost.json
+      CERTIFICATE_DEMO_MODE: "true"
+      CERTIFICATE_PRIVATE_KEY: ${CERTIFICATE_PRIVATE_KEY:?Set the matching private demo chain issuer key}
+      CERTIFICATE_PUBLIC_RPC_URL: ""
+      IPFS_API_URL: http://ipfs:5001
+      IPFS_GATEWAY_URL: https://${PUBLIC_HOST:?Set PUBLIC_HOST}/ipfs
+    volumes:
+      - ./seed_db/migrations:/migrations:ro
+      - blockchain-deployments:/blockchain-deployments:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      blockchain:
+        condition: service_healthy
+      ipfs:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5007/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 12
+    stop_grace_period: 45s
+
+  frontend:
+    <<: *service-defaults
+    image: school-demo-frontend:latest
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ""
+    mem_limit: 96m
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Set PUBLIC_HOST to a DNS hostname}
+      BACKEND_UPSTREAM: backend:5007
+      IPFS_UPSTREAM: ipfs:8080
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      school:
+        ipv4_address: 172.30.77.10
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8081/health | grep -q '^ok$'"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 12
+    stop_grace_period: 30s
+
+  blockchain:
+    <<: *service-defaults
+    image: school-demo-blockchain:latest
+    build:
+      context: ./blockchain
+    init: true
+    mem_limit: 320m
+    environment:
+      NODE_ENV: production
+      NODE_OPTIONS: --max-old-space-size=192
+      LOCAL_CHAIN_HOST: 0.0.0.0
+      LOCAL_CHAIN_MNEMONIC: ${LOCAL_CHAIN_MNEMONIC:?Set a new private demo chain mnemonic}
+      LOCAL_CHAIN_REQUIRE_PRIVATE_MNEMONIC: "true"
+      CHAIN_DATA_DIR: /chain-data
+      DEPLOYMENT_FILE: /deployments/localhost.json
+      CHAIN_READY_FILE: /tmp/registry-ready.json
+    volumes:
+      - blockchain-data:/chain-data
+      - blockchain-deployments:/deployments
+    stop_grace_period: 45s
+
+  ipfs:
+    <<: *service-defaults
+    image: ipfs/kubo:v0.32.1
+    mem_limit: 256m
+    environment:
+      IPFS_PROFILE: server
+      GOMEMLIMIT: 192MiB
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if [ ! -f /data/ipfs/config ]; then ipfs init --profile=server; fi
+        ipfs bootstrap rm --all
+        ipfs config Addresses.API /ip4/0.0.0.0/tcp/5001
+        ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8080
+        ipfs config --json Gateway.PublicGateways '{"localhost":{"Paths":["/ipfs"],"UseSubdomains":false}}'
+        exec ipfs daemon --offline
+    volumes:
+      - ipfs-data:/data/ipfs
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 12
+    stop_grace_period: 45s
+
+networks:
+  school:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.77.0/24
+
+volumes:
+  postgres-data:
+  blockchain-data:
+  blockchain-deployments:
+  ipfs-data:
+  caddy-data:
+  caddy-config:

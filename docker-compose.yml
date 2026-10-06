@@ -1,0 +1,126 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: school_mgmt
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./seed_db/tables.sql:/docker-entrypoint-initdb.d/01-tables.sql:ro
+      - ./seed_db/seed-db.sql:/docker-entrypoint-initdb.d/02-seed-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d school_mgmt"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 5007
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/school_mgmt
+      JWT_ACCESS_TOKEN_SECRET: ${JWT_ACCESS_TOKEN_SECRET:-local-compose-access-secret}
+      JWT_REFRESH_TOKEN_SECRET: ${JWT_REFRESH_TOKEN_SECRET:-local-compose-refresh-secret}
+      JWT_ACCESS_TOKEN_TIME_IN_MS: 900000
+      JWT_REFRESH_TOKEN_TIME_IN_MS: 28800000
+      CSRF_TOKEN_SECRET: ${CSRF_TOKEN_SECRET:-local-compose-csrf-secret}
+      CSRF_TOKEN_TIME_IN_MS: 950000
+      MAIL_FROM_USER: noreply@localhost.invalid
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_VERIFICATION_TOKEN_SECRET: ${EMAIL_VERIFICATION_TOKEN_SECRET:-local-compose-email-secret}
+      EMAIL_VERIFICATION_TOKEN_TIME_IN_MS: 18000000
+      PASSWORD_SETUP_TOKEN_SECRET: ${PASSWORD_SETUP_TOKEN_SECRET:-local-compose-password-secret}
+      PASSWORD_SETUP_TOKEN_TIME_IN_MS: 300000
+      UI_URL: http://localhost:5173
+      API_URL: http://localhost:5007
+      COOKIE_DOMAIN: localhost
+      COOKIE_SECURE: "false"
+      AUTO_MIGRATE: "true"
+      DB_MIGRATIONS_DIR: /migrations
+      CERTIFICATE_RPC_URL: http://blockchain:8545
+      CERTIFICATE_DEPLOYMENT_FILE: /blockchain-deployments/localhost.json
+      CERTIFICATE_DEMO_MODE: "true"
+      CERTIFICATE_PUBLIC_RPC_URL: http://localhost:8545
+      IPFS_API_URL: http://ipfs:5001
+      IPFS_GATEWAY_URL: http://localhost:5173/ipfs
+    volumes:
+      - ./seed_db/migrations:/migrations:ro
+      - blockchain-deployments:/blockchain-deployments:ro
+    ports:
+      - "127.0.0.1:5007:5007"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      blockchain:
+        condition: service_healthy
+      ipfs:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:5007/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ""
+    environment:
+      PORT: 80
+      BACKEND_UPSTREAM: backend:5007
+      IPFS_UPSTREAM: ipfs:8080
+    ports:
+      - "127.0.0.1:5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/health | grep -q '^ok$'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  blockchain:
+    build:
+      context: ./blockchain
+    init: true
+    ports:
+      - "127.0.0.1:8545:8545"
+    volumes:
+      - blockchain-data:/chain-data
+      - blockchain-deployments:/deployments
+
+  ipfs:
+    image: ipfs/kubo:v0.32.1
+    environment:
+      IPFS_PROFILE: server
+    # This self-contained demonstration stores content locally and does not
+    # connect to public peers. The browser only gets a read-only gateway.
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        if [ ! -f /data/ipfs/config ]; then ipfs init --profile=server; fi
+        ipfs bootstrap rm --all
+        ipfs config Addresses.API /ip4/0.0.0.0/tcp/5001
+        ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8080
+        ipfs config --json Gateway.PublicGateways '{"localhost":{"Paths":["/ipfs"],"UseSubdomains":false}}'
+        exec ipfs daemon --offline
+    volumes:
+      - ipfs-data:/data/ipfs
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  postgres-data:
+  blockchain-data:
+  blockchain-deployments:
+  ipfs-data:

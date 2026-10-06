@@ -1,0 +1,7 @@
+build/
+dist/
+node_modules/
+coverage/
+*.lock
+pnpm-lock.yaml
+README.md

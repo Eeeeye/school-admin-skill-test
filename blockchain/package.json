@@ -1,0 +1,26 @@
+{
+  "name": "school-mgmt-certificate-registry",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test && node --test scripts/*.test.js",
+    "node": "hardhat node",
+    "node:persistent": "node scripts/local-chain.js",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "upload:metadata": "node scripts/upload-metadata.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "chai": "4.5.0",
+    "dotenv": "^16.4.5",
+    "ethers": "6.14.0",
+    "ganache": "7.9.2",
+    "hardhat": "^2.22.15",
+    "solc": "0.8.24"
+  }
+}

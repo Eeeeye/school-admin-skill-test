@@ -1,0 +1,7 @@
+packages:
+  - .
+# Optional WebSocket accelerators have JavaScript fallbacks. Keep newer pnpm
+# versions from requesting native build approval for these optional packages.
+allowBuilds:
+  bufferutil: false
+  utf-8-validate: false

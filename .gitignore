@@ -1,0 +1,27 @@
+frontend/dist/
+frontend/node_modules/
+backend/node_modules/
+blockchain/node_modules/
+blockchain/cache/
+blockchain/artifacts/
+blockchain/coverage/
+blockchain/deployments/
+*.log
+# Environment files may contain credentials. Keep only committed examples.
+.env
+.env.*
+!.env.example
+!.env.compose.example
+.idea/models/.svn/
+blockchain/chain-data/
+.server-deploy/
+# Local runtime data, editor files and private deployment handover documents.
+work/
+tmp/
+__pycache__/
+.pytest_cache/
+.venv/
+.DS_Store
+.idea/
+deploy/部署过程详解.md
+deploy/School_Admin_部署过程详解.docx

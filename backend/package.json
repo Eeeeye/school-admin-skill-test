@@ -1,0 +1,36 @@
+{
+  "name": "school-mgmt-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node ./src/server.js",
+    "test": "npm run test:syntax && npm run test:auth",
+    "test:syntax": "find src -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "test:auth": "node --test test/*.test.js",
+    "migrate": "node src/migrate.js",
+    "bootstrap:admin": "node src/scripts/bootstrap-admin.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "argon2": "^0.40.3",
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.17.0",
+    "express": "^4.19.2",
+    "express-async-handler": "^1.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "pg": "^8.12.0",
+    "resend": "^4.0.0",
+    "uuid": "^11.1.1",
+    "zod": "^3.23.8"
+  },
+  "overrides": {
+    "qs": "^6.16.0"
+  }
+}

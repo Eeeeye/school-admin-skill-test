@@ -1,0 +1,9 @@
+node_modules
+artifacts
+cache
+coverage
+deployments
+chain-data
+.env
+.env.*
+*.log
