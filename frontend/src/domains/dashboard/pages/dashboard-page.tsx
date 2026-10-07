@@ -57,13 +57,13 @@ export const DashboardPage = () => {
       {currentUserRole === 'admin' && (
         <>
           <Grid2 size={{ xs: 12, md: 4 }}>
-            <GridCard {...students} heading='Total Students' />
+            <GridCard {...students} heading='Students admitted this year' />
           </Grid2>
           <Grid2 size={{ xs: 12, md: 4 }}>
-            <GridCard {...teachers} heading='Total Teachers' />
+            <GridCard {...teachers} heading='Teachers joined this year' />
           </Grid2>
           <Grid2 size={{ xs: 12, md: 4 }}>
-            <GridCard {...parents} heading='Total Parents' />
+            <GridCard {...parents} heading='Parents joined this year' />
           </Grid2>
         </>
       )}

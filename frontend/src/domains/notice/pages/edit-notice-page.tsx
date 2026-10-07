@@ -42,8 +42,8 @@ export const EditNotice = () => {
       methods.setValue('description', description);
       methods.setValue('status', status);
       methods.setValue('recipientType', recipientType);
-      methods.setValue('recipientRole', recipientRole);
-      methods.setValue('firstField', firstField);
+      methods.setValue('recipientRole', recipientRole ?? 0);
+      methods.setValue('firstField', firstField ?? '');
       if (recipientType === 'SP') {
         setSelectedRoleId(Number(recipientRole));
       }

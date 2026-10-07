@@ -133,6 +133,37 @@ const recipient = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
     assert.equal(notice.firstField, className);
     await page.goto(`/app/notices/${noticeId}`);
     await page.getByText(notice.description, { exact: true }).waitFor();
+    await page.goto('/app');
+    await page.setViewportSize({ width: 390, height: 844 });
+    const dashboardNotice = page.getByRole('link', { name: `UI notice ${stamp}`, exact: true });
+    await dashboardNotice.waitFor();
+    const titleBounds = await dashboardNotice.boundingBox();
+    const dateBounds = await dashboardNotice.locator('xpath=ancestor::li[1]')
+      .locator('.MuiListItemText-secondary').boundingBox();
+    assert(titleBounds && dateBounds && dateBounds.y >= titleBounds.y + titleBounds.height - 1,
+      'Mobile dashboard notice title and date must not overlap');
+    await page.setViewportSize({ width: 1440, height: 1050 });
+    // The API stores unused Everyone audience fields as null. Reopening the
+    // saved notice must normalize them so hidden-field validation cannot block Save.
+    await page.goto(`/app/notices/edit/${noticeId}`);
+    await page.getByRole('radio', { name: 'Everyone', exact: true }).check();
+    const [audienceUpdate] = await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith(`/api/v1/notices/${noticeId}`) && response.request().method() === 'PUT'),
+      page.getByRole('button', { name: 'Save', exact: true }).click()
+    ]);
+    assert.equal(audienceUpdate.status(), 200);
+    await page.waitForURL(`**/app/notices/${noticeId}`);
+    await page.goto(`/app/notices/edit/${noticeId}`);
+    await page.waitForFunction(() => document.querySelector('textarea[name="description"]')?.value);
+    const updatedNoticeDescription = 'Everyone notice edited successfully through the browser form.';
+    await page.getByLabel('Description', { exact: true }).fill(updatedNoticeDescription);
+    const [noticeUpdate] = await Promise.all([
+      page.waitForResponse((response) => response.url().endsWith(`/api/v1/notices/${noticeId}`) && response.request().method() === 'PUT'),
+      page.getByRole('button', { name: 'Save', exact: true }).click()
+    ]);
+    assert.equal(noticeUpdate.status(), 200);
+    await page.waitForURL(`**/app/notices/${noticeId}`);
+    await page.getByText(updatedNoticeDescription, { exact: true }).waitFor();
     await page.goto(`/app/certificates?studentId=${studentId}`);
     await page.getByRole('button', { name: 'Issue certificate', exact: true }).click();
     const dialog = page.getByRole('dialog');
@@ -243,7 +274,7 @@ const recipient = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
     }
     await publicContext.close();
     assert.deepEqual(uncaught, [], 'No uncaught browser errors');
-    console.log('UI PASS: login, all module routes, real student add/edit/delete forms, specific class notice save/read, certificate issue, simulated wallet lifecycle/rejection/network switch, wallet absence, public verification/IPFS, revoke, invalid ID, student delete');
+    console.log('UI PASS: login, all module routes, real student add/edit/delete forms, specific class notice save/read, Everyone notice edit/reopen/save, certificate issue, simulated wallet lifecycle/rejection/network switch, wallet absence, public verification/IPFS, revoke, invalid ID, student delete');
   } catch (error) {
     await page.screenshot({ path: '/tmp/web3-product-ui-failure.png', fullPage: true }).catch(() => null);
     throw error;

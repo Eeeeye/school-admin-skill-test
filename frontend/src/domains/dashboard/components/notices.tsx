@@ -19,27 +19,32 @@ import { Notice } from '@/domains/notice/types';
 const NO_RECORD = 'Record not found';
 
 export const Notices = ({ notices }: { notices: Notice[] }) => {
+  const visibleNotices = Array.isArray(notices)
+    ? notices.filter(({ statusId }) => statusId !== 6)
+    : [];
   let content: React.ReactNode | null = null;
-  if (!Array.isArray(notices) || notices.length <= 0) {
+  if (visibleNotices.length === 0) {
     content = <>{NO_RECORD}</>;
   } else {
-    content = notices.map(({ id, title, author, createdDate }, index) => (
+    content = visibleNotices.map(({ id, title, author, createdDate }, index) => (
       <List key={id}>
-        <ListItem secondaryAction={getFormattedDate(createdDate, DATE_FORMAT)}>
+        <ListItem alignItems='flex-start'>
           <ListItemAvatar title={author}>
             <Avatar>
               <Person />
             </Avatar>
           </ListItemAvatar>
           <ListItemText
+            sx={{ minWidth: 0, overflowWrap: 'anywhere' }}
             primary={
               <Link to={`/app/notices/${id}`} className='notice-title'>
                 {title}
               </Link>
             }
+            secondary={getFormattedDate(createdDate, DATE_FORMAT)}
           />
         </ListItem>
-        {index !== notices.length - 1 && <Divider variant='inset' component='li' />}
+        {index !== visibleNotices.length - 1 && <Divider variant='inset' component='li' />}
       </List>
     ));
   }

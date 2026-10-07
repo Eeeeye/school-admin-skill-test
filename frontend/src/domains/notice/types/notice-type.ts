@@ -23,7 +23,9 @@ export type Notice = {
 
 export type NoticeFormProps = z.infer<typeof NoticeFormSchema>;
 
-export type NoticeDetailProps = NoticeFormProps & {
+export type NoticeDetailProps = Omit<NoticeFormProps, 'recipientRole' | 'firstField'> & {
+  recipientRole: number | null;
+  firstField: string | null;
   id: number;
   author: string;
   createdDate: Date;

@@ -205,6 +205,15 @@ management-page checks, public certificate verification and revocation, and
 data-persistence checks after service restart. Backups passed checksum/archive
 checks; a full restore into fresh volumes has not been rehearsed.
 
+A further live Chrome browser audit on 2026-10-07 exercised login, 13 management
+pages, section/class creation, student create/edit/filter/delete forms, notice
+creation, certificate issue/anonymous verification/revocation, and mobile views.
+It found and fixed Everyone-notice editing with null audience fields, misleading
+annual dashboard labels, and overlapping mobile notice dates. The dashboard now
+omits soft-deleted notices from its preview. A fresh deployed-browser pass verified
+these fixes plus sidebar navigation and logout. Email invitations still require
+mail-provider configuration; they are not included in the passing browser checks.
+
 ### ** Database Setup **
 ```bash
 # Create PostgreSQL database

@@ -29,6 +29,9 @@ export const GridCard: React.FC<GridCardType> = (props) => {
             color={isNegative ? 'error' : 'success'}
           />
         </Box>
+        <Typography variant='caption' color='text.secondary'>
+          Compared with the previous calendar year
+        </Typography>
       </CardContent>
     </Card>
   );
