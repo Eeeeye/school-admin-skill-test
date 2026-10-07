@@ -44,10 +44,15 @@ jobs:
           ./scripts/test-database.sh
       - name: Browser dependencies
         run: |
-          npm install --prefix /tmp/school-browser --no-package-lock playwright@1.62.1
-          /tmp/school-browser/node_modules/.bin/playwright install --with-deps chromium
+          npm install --prefix /tmp/school-browser --no-package-lock --ignore-scripts --no-audit --no-fund --fetch-retries=1 --fetch-timeout=60000 playwright@1.62.1
+          browser_path=$(command -v google-chrome || command -v google-chrome-stable || true)
+          if [ -z "$browser_path" ]; then
+            /tmp/school-browser/node_modules/.bin/playwright install --with-deps chromium
+            browser_path=$(node -e 'console.log(require("/tmp/school-browser/node_modules/playwright").chromium.executablePath())')
+          fi
+          "$browser_path" --version
           echo "PLAYWRIGHT_MODULE=/tmp/school-browser/node_modules/playwright" >> "$GITHUB_ENV"
-          echo "CHROME_PATH=$(node -e 'console.log(require("/tmp/school-browser/node_modules/playwright").chromium.executablePath())')" >> "$GITHUB_ENV"
+          echo "CHROME_PATH=$browser_path" >> "$GITHUB_ENV"
       - name: Browser journeys and error regressions
         run: |
           node scripts/test-product-ui.cjs

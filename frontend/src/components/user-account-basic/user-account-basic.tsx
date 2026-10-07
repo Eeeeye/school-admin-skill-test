@@ -13,6 +13,9 @@ import { getErrorMsg } from '@/utils/helpers/get-error-message';
 import { UserAccountBasicDataProps, UserAccountBasicProps } from './user-account-basic-type';
 import { useHandleMenuAction } from '../../hooks';
 import { menuItemTexts } from '@/constants';
+import { useSelector } from 'react-redux';
+import { getUserId, getUserRole } from '@/domains/auth/slice';
+import { canEditStaff, canDisableStaff } from '@/utils/helpers/get-staff-permission';
 
 type State = {
   isSaving: boolean;
@@ -32,6 +35,8 @@ const initialState = {
 };
 
 export const UserAccountBasic = ({ data }: { data: UserAccountBasicDataProps }) => {
+  const actorRole = useSelector(getUserRole);
+  const actorId = useSelector(getUserId);
   const [state, setState] = React.useState<State>(initialState);
   const { handleAction } = useHandleMenuAction();
   const { users, userType, isLoading, isError, error } = data;
@@ -72,7 +77,7 @@ export const UserAccountBasic = ({ data }: { data: UserAccountBasicDataProps }) 
   };
   const onSave = async () => {
     try {
-      setState((prevState) => ({ ...prevState, isSaving: !prevState.isSaving }));
+      setState((prevState) => ({ ...prevState, isSaving: true }));
       const { userId, menuAction } = state;
       const result = await handleAction(menuAction, userId);
       toast.info(result?.message);
@@ -80,7 +85,7 @@ export const UserAccountBasic = ({ data }: { data: UserAccountBasicDataProps }) 
     } catch (error) {
       toast.error(getErrorMsg(error as FetchBaseQueryError | SerializedError).message);
     } finally {
-      setState((prevState) => ({ ...prevState, isSaving: !prevState.isSaving }));
+      setState((prevState) => ({ ...prevState, isSaving: false }));
     }
   };
 
@@ -123,8 +128,9 @@ export const UserAccountBasic = ({ data }: { data: UserAccountBasicDataProps }) 
     enableRowActions: true,
     renderRowActionMenuItems: ({ row, closeMenu }) => {
       const {
-        original: { id }
+        original: { id, role: targetRole }
       } = row;
+      const canManageTarget = userType !== 'staff' || canEditStaff(actorRole, targetRole);
       const staticAction = [
         <MenuItem
           key={0}
@@ -137,32 +143,42 @@ export const UserAccountBasic = ({ data }: { data: UserAccountBasicDataProps }) 
           </ListItemIcon>
           <ListItemText>View</ListItemText>
         </MenuItem>,
-        <MenuItem
-          key={1}
-          onClick={() => closeMenu()}
-          component={Link}
-          to={userType === 'staff' ? `/app/staffs/edit/${id}` : `/app/students/edit/${id}`}
-        >
-          <ListItemIcon>
-            <Edit fontSize='small' />
-          </ListItemIcon>
-          <ListItemText>Edit</ListItemText>
-        </MenuItem>
+        canManageTarget && (
+          <MenuItem
+            key={1}
+            onClick={() => closeMenu()}
+            component={Link}
+            to={userType === 'staff' ? `/app/staffs/edit/${id}` : `/app/students/edit/${id}`}
+          >
+            <ListItemIcon>
+              <Edit fontSize='small' />
+            </ListItemIcon>
+            <ListItemText>Edit</ListItemText>
+          </MenuItem>
+        )
       ];
       return [
         ...staticAction,
-        menuActions.map(({ action, icon, text }) => (
-          <MenuItem
-            onClick={() => {
-              closeMenu();
-              onMenuItemClick(action, id);
-            }}
-            key={action}
-          >
-            <ListItemIcon>{icon}</ListItemIcon>
-            <ListItemText>{text}</ListItemText>
-          </MenuItem>
-        ))
+        menuActions
+          .filter(
+            ({ action }) =>
+              canManageTarget &&
+              (userType !== 'staff' ||
+                action !== 'DISABLE_STAFF_STATUS' ||
+                canDisableStaff(actorRole, actorId, targetRole, id))
+          )
+          .map(({ action, icon, text }) => (
+            <MenuItem
+              onClick={() => {
+                closeMenu();
+                onMenuItemClick(action, id);
+              }}
+              key={action}
+            >
+              <ListItemIcon>{icon}</ListItemIcon>
+              <ListItemText>{text}</ListItemText>
+            </MenuItem>
+          ))
       ];
     },
     renderEmptyRowsFallback: () => {

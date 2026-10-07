@@ -13,6 +13,9 @@ import { UserAccountBasic } from '@/components/user-account-basic';
 import { StaffFilter, StaffFilterSchema } from '../types';
 import { useGetStaffsQuery } from '../api/staff-api';
 import { FilterStaff } from '../components/forms';
+import { useSelector } from 'react-redux';
+import { getUserRole } from '@/domains/auth/slice';
+import { canCreateStaff } from '@/utils/helpers/get-staff-permission';
 
 const initialState = {
   roleId: '',
@@ -21,6 +24,7 @@ const initialState = {
 };
 
 export const ListStaffs = () => {
+  const actorRole = useSelector(getUserRole);
   const [filter, setFilter] = React.useState<StaffFilter>({});
   const { data, isLoading, isError, error } = useGetStaffsQuery(filter);
 
@@ -35,20 +39,22 @@ export const ListStaffs = () => {
 
   return (
     <>
-      <Box sx={{ display: 'flex', mb: 1 }}>
-        <Box sx={{ ml: 'auto' }}>
-          <Button
-            size='small'
-            color='primary'
-            variant='contained'
-            startIcon={<Add />}
-            component={Link}
-            to='/app/staffs/add'
-          >
-            Add New Staff
-          </Button>
+      {canCreateStaff(actorRole) && (
+        <Box sx={{ display: 'flex', mb: 1 }}>
+          <Box sx={{ ml: 'auto' }}>
+            <Button
+              size='small'
+              color='primary'
+              variant='contained'
+              startIcon={<Add />}
+              component={Link}
+              to='/app/staffs/add'
+            >
+              Add New Staff
+            </Button>
+          </Box>
         </Box>
-      </Box>
+      )}
       <FilterStaff
         searchStaff={methods.handleSubmit(searchStaff)}
         methods={methods}

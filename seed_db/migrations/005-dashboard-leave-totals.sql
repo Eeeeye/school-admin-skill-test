@@ -186,10 +186,10 @@ BEGIN
 
     --celebrations
     WITH _celebrations AS (
-        SELECT 
-            t1.id AS "userId", 
-            t1.name AS user, 
-            'Happy Birthday!' AS event, 
+        SELECT
+            t1.id AS "userId",
+            t1.name AS user,
+            'Happy Birthday!' AS event,
             t2.dob AS "eventDate"
         FROM users t1
         JOIN user_profiles t2 ON t1.id = t2.user_id
@@ -201,16 +201,16 @@ BEGIN
 
         UNION ALL
 
-        SELECT 
-            t1.id AS "userId", 
-            t1.name AS user, 
+        SELECT
+            t1.id AS "userId",
+            t1.name AS user,
             'Happy ' ||
                 CASE
                     WHEN t1.role_id = 3 THEN
                         EXTRACT(YEAR FROM age(now(), t2.admission_dt))
                     ELSE
                         EXTRACT(YEAR FROM age(now(), t2.join_dt))
-                END || ' Anniversary!' AS event, 
+                END || ' Anniversary!' AS event,
             CASE
                 WHEN t1.role_id = 3 THEN
                     t2.admission_dt
@@ -219,10 +219,10 @@ BEGIN
             END AS "eventDate"
         FROM users t1
         JOIN user_profiles t2 ON t1.id = t2.user_id
-        WHERE 
+        WHERE
         (
-            t1.role_id = 3 
-            AND t2.admission_dt IS NOT NULL 
+            t1.role_id = 3
+            AND t2.admission_dt IS NOT NULL
             AND age(now(), t2.admission_dt) >= INTERVAL '1 year'
             AND (
                 (t2.admission_dt +
@@ -230,10 +230,10 @@ BEGIN
                 BETWEEN now() AND now() + '90 days'
             )
         )
-        OR 
+        OR
         (
-            t1.role_id != 3 
-            AND t2.join_dt IS NOT NULL 
+            t1.role_id != 3
+            AND t2.join_dt IS NOT NULL
             AND age(now(), t2.join_dt) >= INTERVAL '1 year'
             AND (
                 (t2.join_dt +
@@ -250,8 +250,8 @@ BEGIN
 
     --who is out this week
     WITH _month_dates AS (
-        SELECT 
-            DATE_TRUNC('day', now()) AS day_start, 
+        SELECT
+            DATE_TRUNC('day', now()) AS day_start,
             DATE_TRUNC('day', now()) + INTERVAL '30 days' AS day_end
     )
     SELECT

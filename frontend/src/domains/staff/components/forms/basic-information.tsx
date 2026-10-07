@@ -24,14 +24,27 @@ import { DATE_FORMAT } from '@/utils/helpers/date';
 import { StaffFormProps } from '../../types';
 import { genders, maritalStatusList } from '@/constants';
 
-export const BasicInformation = () => {
-  const roles = useGetRoles();
+type BasicInformationProps = { identityReadOnly?: boolean; lockRole?: boolean };
+
+export const BasicInformation = ({
+  identityReadOnly = false,
+  lockRole = false
+}: BasicInformationProps) => {
+  const roleReadOnly = identityReadOnly || lockRole;
+  const roles = useGetRoles(roleReadOnly);
   const departments = useGetDepartmentsQuery();
   const {
     register,
     control,
+    watch,
     formState: { errors }
   } = useFormContext<StaffFormProps>();
+
+  const selectedRole = watch('role');
+  const selectedRoleName = watch('roleName');
+  const roleOptions = roleReadOnly
+    ? [{ id: selectedRole, name: selectedRoleName || `Role #${selectedRole}` }]
+    : roles.filter((role) => role.id !== 3);
 
   return (
     <>
@@ -61,18 +74,22 @@ export const BasicInformation = () => {
               <>
                 <Select
                   label='Role'
+                  readOnly={roleReadOnly}
                   labelId='role'
                   value={value}
                   onChange={(e) => onChange(e.target.value)}
                   notched
                 >
-                  {roles.map((role) => (
+                  {roleOptions.map((role) => (
                     <MenuItem value={role.id} key={role.id}>
                       {role.name}
                     </MenuItem>
                   ))}
                 </Select>
-                <FormHelperText>{error?.message}</FormHelperText>
+                <FormHelperText>
+                  {error?.message ||
+                    (roleReadOnly ? 'This account role cannot be changed here.' : '')}
+                </FormHelperText>
               </>
             )}
           />
@@ -191,12 +208,16 @@ export const BasicInformation = () => {
           <TextField
             {...register('email')}
             error={Boolean(errors?.email)}
-            helperText={errors?.email?.message}
+            helperText={
+              errors?.email?.message ||
+              (identityReadOnly ? 'Only administrators can change the login email.' : '')
+            }
             label='Email'
             size='small'
             slotProps={{
               inputLabel: { shrink: true },
               input: {
+                readOnly: identityReadOnly,
                 startAdornment: (
                   <InputAdornment position='start'>
                     <Email fontSize='small' />

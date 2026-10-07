@@ -3,7 +3,7 @@ import { toast } from 'react-toastify';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AddCircleOutline } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
-import { Button, Paper, Stack } from '@mui/material';
+import { Alert, Button, Paper, Stack } from '@mui/material';
 import { SerializedError } from '@reduxjs/toolkit';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { FormProvider, useForm } from 'react-hook-form';
@@ -12,6 +12,9 @@ import { PageContentHeader } from '@/components/page-content-header';
 import { getErrorMsg } from '@/utils/helpers/get-error-message';
 import { useAddStaffMutation } from '../api/staff-api';
 import { StaffFormProps, StaffFormSchema } from '../types';
+import { useSelector } from 'react-redux';
+import { getUserRole } from '@/domains/auth/slice';
+import { canCreateStaff } from '@/utils/helpers/get-staff-permission';
 import {
   Address,
   BasicInformation,
@@ -21,6 +24,7 @@ import {
 } from '../components/forms';
 
 export const AddStaff = () => {
+  const actorRole = useSelector(getUserRole);
   const navigate = useNavigate();
 
   const [addNewStaff, { isLoading: isAddingStaff }] = useAddStaffMutation();
@@ -42,6 +46,9 @@ export const AddStaff = () => {
       toast.error(getErrorMsg(error as FetchBaseQueryError | SerializedError).message);
     }
   };
+
+  if (!canCreateStaff(actorRole))
+    return <Alert severity='warning'>Only administrators can create staff accounts.</Alert>;
 
   return (
     <>

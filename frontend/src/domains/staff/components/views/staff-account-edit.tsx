@@ -9,6 +9,9 @@ import { toast } from 'react-toastify';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { SerializedError } from '@reduxjs/toolkit';
 import { parseISO } from 'date-fns';
+import { useSelector } from 'react-redux';
+import { getUserId, getUserRole } from '@/domains/auth/slice';
+import { canEditStaff, prepareStaffUpdate } from '@/utils/helpers/get-staff-permission';
 
 import { PageContentHeader } from '@/components/page-content-header';
 import { getErrorMsg } from '@/utils/helpers/get-error-message';
@@ -35,6 +38,8 @@ export const StaffAccountEdit: React.FC<StaffAccountEditProps> = ({
   redirectPath,
   heading
 }) => {
+  const actorRole = useSelector(getUserRole);
+  const actorId = useSelector(getUserId);
   const { currentData: staffDetail, isFetching, error } = useGetStaffDetail(id);
   const [updateStaff, { isLoading: isUpdatingStaff }] = useUpdateStaffMutation();
   const navigate = useNavigate();
@@ -61,8 +66,12 @@ export const StaffAccountEdit: React.FC<StaffAccountEditProps> = ({
   }, [staffDetail, methods]);
 
   const onUpdateStaff = async (data: StaffFormProps) => {
+    if (!staffDetail || !canEditStaff(actorRole, staffDetail.role)) return;
     try {
-      const result = await updateStaff({ id: Number(id)!, ...data }).unwrap();
+      const result = await updateStaff({
+        id: Number(id)!,
+        ...prepareStaffUpdate(data, staffDetail, actorRole)
+      }).unwrap();
       toast.info(result.message);
       navigate(redirectPath);
     } catch (error) {
@@ -73,13 +82,18 @@ export const StaffAccountEdit: React.FC<StaffAccountEditProps> = ({
   if (isFetching && !staffDetail) return <LinearProgress aria-label='Loading staff' />;
   if (error) return <Alert severity='error'>{getErrorMsg(error).message}</Alert>;
   if (!staffDetail) return <Alert severity='info'>Staff record not found.</Alert>;
+  if (!canEditStaff(actorRole, staffDetail.role))
+    return <Alert severity='warning'>Only administrators can edit administrator accounts.</Alert>;
 
   return (
     <>
       <PageContentHeader icon={<Edit sx={{ mr: 1 }} />} heading={heading} />
       <Paper sx={{ p: 3 }}>
         <FormProvider {...methods}>
-          <BasicInformation />
+          <BasicInformation
+            identityReadOnly={actorRole !== 'admin'}
+            lockRole={actorId === staffDetail.id}
+          />
 
           <hr />
           <Address />
@@ -88,7 +102,7 @@ export const StaffAccountEdit: React.FC<StaffAccountEditProps> = ({
           <ParentsInformation />
 
           <hr />
-          <OtherInformation />
+          <OtherInformation lockSystemAccess={actorId === staffDetail.id} />
         </FormProvider>
         <hr />
         <Stack alignItems='center' justifyContent='center'>

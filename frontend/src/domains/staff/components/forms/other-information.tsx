@@ -15,7 +15,7 @@ import { Controller, useFormContext } from 'react-hook-form';
 import { useGetStaffs } from '../../hooks/use-get-staffs';
 import { StaffFormProps } from '../../types';
 
-export const OtherInformation = () => {
+export const OtherInformation = ({ lockSystemAccess = false }: { lockSystemAccess?: boolean }) => {
   const staffs = useGetStaffs();
 
   const {
@@ -80,6 +80,7 @@ export const OtherInformation = () => {
               <FormControlLabel
                 name='systemAccess'
                 label='No Access'
+                disabled={lockSystemAccess}
                 control={<Radio checked={!value} onChange={() => onChange(false)} />}
               />
             )}
