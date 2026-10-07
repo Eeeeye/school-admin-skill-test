@@ -11,8 +11,10 @@ const jar = new Map();
 let studentId;
 const ids = [];
 async function request(route, method = 'GET', body, expected = 200, headers = {}) {
+  // Synchronous Compose restarts can close pooled sockets while Node cannot
+  // process their close events. Every probe must connect to the current server.
   const response = await fetch(`${origin}/api/v1${route}`, {
-    method, headers: { 'content-type': 'application/json', cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; '),
+    method, headers: { connection: 'close', 'content-type': 'application/json', cookie: [...jar].map(([k, v]) => `${k}=${v}`).join('; '),
       'x-csrf-token': decodeURIComponent(jar.get('csrfToken') || ''), ...headers },
     body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(65000),
   });
