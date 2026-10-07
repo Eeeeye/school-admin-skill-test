@@ -1,14 +1,16 @@
 const { ApiError } = require("../../utils");
+const { academicId, academicName } = require("../../utils/academic-integrity");
 const { createNewLeavePolicy, updateLeavePolicyById, getLeavePolicies, getUsersByPolicyId, updatePolicyUsersById, enableDisableLeavePolicy, deleteUserFromPolicyById, getPolicyEligibleUsers, createNewLeaveRequest, updateLeaveRequestById, getLeaveRequestHistoryByUser, deleteLeaveRequestByRequestId, getPendingLeaveRequests, approveOrCancelPendingLeaveRequest, findReviewerIdByRequestId, getMyLeavePolicy, findPolicyStatusById } = require("./leave-repository");
 
 const checkIfPolicyIsActive = async (id) => {
+    academicId(id);
     const policy = await findPolicyStatusById(id);
     if (!policy) throw new ApiError(404, "Leave policy not found");
     if (!policy.is_active) throw new ApiError(403, "Policy is not active. Please activate the policy first.")
 }
 
 const makeNewLeavePolicy = async (name) => {
-    const affectedRow = await createNewLeavePolicy(name);
+    const affectedRow = await createNewLeavePolicy(academicName(name, "Leave policy"));
     if (affectedRow <= 0) {
         throw new ApiError(500, "Unable to add policy");
     }
@@ -19,7 +21,7 @@ const makeNewLeavePolicy = async (name) => {
 const updateLeavePolicy = async (name, id) => {
     await checkIfPolicyIsActive(id);
 
-    const affectedRow = await updateLeavePolicyById(name, id);
+    const affectedRow = await updateLeavePolicyById(academicName(name, "Leave policy"), id);
     if (affectedRow <= 0) {
         throw new ApiError(500, "Unable to update policy");
     }
@@ -48,9 +50,11 @@ const fetchPolicyUsers = async (id) => {
 }
 
 const updatePolicyUsers = async (policyId, userIds) => {
+    if (typeof userIds !== "string" || !userIds.trim()) throw new ApiError(400, "Users must be a non-empty comma-separated list of IDs");
+    const users = [...new Set(userIds.split(",").map((id) => academicId(id.trim())))].join(",");
     await checkIfPolicyIsActive(policyId);
 
-    const affectedRow = await updatePolicyUsersById(policyId, userIds);
+    const affectedRow = await updatePolicyUsersById(policyId, users);
     if (affectedRow <= 0) {
         throw new ApiError(404, "No users were updated or policy not found");
     }
@@ -59,6 +63,7 @@ const updatePolicyUsers = async (policyId, userIds) => {
 }
 
 const deletePolicyUser = async (userId, policyId) => {
+    academicId(userId);
     await checkIfPolicyIsActive(policyId);
 
     const affectedRow = await deleteUserFromPolicyById(userId, policyId);
@@ -70,6 +75,7 @@ const deletePolicyUser = async (userId, policyId) => {
 }
 
 const reviewLeavePolicy = async (status, policyId) => {
+    academicId(policyId);
     if (typeof status !== "boolean") throw new ApiError(400, "Policy status must be a boolean");
     const affectedRow = await enableDisableLeavePolicy(status, policyId);
     if (affectedRow <= 0) {
@@ -88,7 +94,7 @@ const fetchPolicyEligibleUsers = async () => {
 }
 
 const validateLeaveRequest = (payload) => {
-    if (!/^[1-9]\d*$/.test(String(payload.policy))) throw new ApiError(400, "Select a valid leave policy");
+    academicId(payload.policy);
     for (const field of ["from", "to"]) {
         const value = payload[field];
         const date = typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00.000Z`) : new Date(NaN);
@@ -111,6 +117,7 @@ const addNewLeaveRequest = async (payload) => {
 }
 
 const updateLeaveRequest = async (payload) => {
+    academicId(payload.id);
     validateLeaveRequest(payload);
     await checkIfPolicyIsActive(payload.policy);
 
@@ -129,6 +136,7 @@ const getUserLeaveHistory = async (userId) => {
 }
 
 const deleteLeaveRequest = async (leaveRequestId, userId) => {
+    academicId(leaveRequestId);
     const affectedRow = await deleteLeaveRequestByRequestId(leaveRequestId, userId);
     if (affectedRow <= 0) {
         throw new ApiError(403, "Only your own pending leave request may be deleted");
@@ -144,6 +152,8 @@ const fetchPendingLeaveRequests = async (user) => {
 }
 
 const reviewPendingLeaveRequest = async (userId, requestId, status, reviewerRoleId) => {
+    academicId(requestId);
+    if (!["number", "string"].includes(typeof status)) throw new ApiError(400, "Invalid leave review status");
     status = Number(status);
     if (![2, 3].includes(status)) throw new ApiError(400, "Leave review status must be approved or cancelled");
     const user = await findReviewerIdByRequestId(requestId);
@@ -156,7 +166,7 @@ const reviewPendingLeaveRequest = async (userId, requestId, status, reviewerRole
         throw new ApiError(403, "Forbidden. Authorised reviewer only.");
     }
 
-    const affectedRow = await approveOrCancelPendingLeaveRequest(userId, requestId, status);
+    const affectedRow = await approveOrCancelPendingLeaveRequest(userId, requestId, status, reviewerRoleId);
     if (affectedRow <= 0) {
         throw new ApiError(409, "This leave request has already been reviewed")
     }

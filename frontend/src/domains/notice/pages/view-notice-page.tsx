@@ -5,6 +5,9 @@ import { toast } from 'react-toastify';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { SerializedError } from '@reduxjs/toolkit';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { getUserId, getUserRole } from '@/domains/auth/slice';
+import { canEditNotice, canDeleteNotice } from '@/utils/helpers/get-notice-permission';
 
 import { DATE_FORMAT, getFormattedDate } from '@/utils/helpers/date';
 import { DialogModal } from '@/components/dialog-modal';
@@ -14,6 +17,8 @@ import { ViewNoticeSkeleton } from '../components';
 
 export const ViewNotice = () => {
   const { id } = useParams();
+  const currentUserId = useSelector(getUserId);
+  const role = useSelector(getUserRole);
   const [modalOpen, setModalOpen] = React.useState(false);
 
   const navigate = useNavigate();
@@ -25,7 +30,10 @@ export const ViewNotice = () => {
   };
   const onSave = async () => {
     try {
-      const result = await deleteNotice({ id: Number(id), status: 3 }).unwrap();
+      const result = await deleteNotice({
+        id: Number(id),
+        status: role === 'admin' ? 6 : 3
+      }).unwrap();
       toast.info(result.message);
       toggleDeleteConfirmationModal();
       navigate('/app/notices');
@@ -46,12 +54,12 @@ export const ViewNotice = () => {
   } else if (!noticeDetail) {
     content = <>Record not found</>;
   } else {
-    const { id, title, description, author, createdDate } = noticeDetail;
+    const { id, title, description, author, authorId, createdDate, status } = noticeDetail;
 
     content = (
       <>
         <Box component='div' display='flex' justifyContent='space-between' alignItems='center'>
-          <Box component='div' sx={{ mb: 2 }}>
+          <Box component='div' sx={{ mb: 2, minWidth: 0, overflowWrap: 'anywhere' }}>
             <Typography component='div' variant='h5'>
               {title}
             </Typography>
@@ -62,19 +70,32 @@ export const ViewNotice = () => {
               {` - ${getFormattedDate(createdDate, DATE_FORMAT)}`}
             </Typography>
           </Box>
-          <Box component='div'>
+          <Box component='div' sx={{ flexShrink: 0 }}>
             <Stack direction='row' spacing={1}>
-              <IconButton color='primary' component={Link} to={`/app/notices/edit/${id}`}>
-                <Edit />
-              </IconButton>
-              <IconButton color='primary' onClick={toggleDeleteConfirmationModal}>
-                <Delete />
-              </IconButton>
+              {canEditNotice(authorId, status, currentUserId, role) && (
+                <IconButton
+                  aria-label='Edit notice'
+                  color='primary'
+                  component={Link}
+                  to={`/app/notices/edit/${id}`}
+                >
+                  <Edit />
+                </IconButton>
+              )}
+              {canDeleteNotice(authorId, status, currentUserId, role) && (
+                <IconButton
+                  aria-label={role === 'admin' ? 'Delete notice' : 'Request notice deletion'}
+                  color='primary'
+                  onClick={toggleDeleteConfirmationModal}
+                >
+                  <Delete />
+                </IconButton>
+              )}
             </Stack>
           </Box>
         </Box>
         <Divider />
-        <Typography component='p' sx={{ py: 3 }}>
+        <Typography component='p' sx={{ py: 3, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
           {description}
         </Typography>
       </>
@@ -89,11 +110,15 @@ export const ViewNotice = () => {
         actionFooterCancelText='No'
         actionFooterSaveText='Yes'
         isOpen={modalOpen}
-        titleText='Delete Notice'
+        titleText={role === 'admin' ? 'Delete Notice' : 'Request Notice Deletion'}
         handleSave={onSave}
         closeModal={closeModal}
       >
-        <Typography variant='body1'>Are you sure you want to delete this notice?</Typography>
+        <Typography variant='body1'>
+          {role === 'admin'
+            ? 'Are you sure you want to delete this notice?'
+            : 'Request administrator approval to delete this notice?'}
+        </Typography>
       </DialogModal>
     </Paper>
   );

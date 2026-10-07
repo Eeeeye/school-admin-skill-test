@@ -1,17 +1,32 @@
-import { Middleware } from '@reduxjs/toolkit';
+import { isAction, Middleware } from '@reduxjs/toolkit';
+import { api } from '@/api';
+import { advanceAuthSession } from '@/api/auth-session';
 import { persistor } from './store';
 
-//eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const purgeMiddleware: Middleware = () => (next) => async (action: any) => {
-  if (action.type === 'auth/resetUser') {
+let persistenceCleanup = Promise.resolve();
+
+export const purgeMiddleware: Middleware = (store) => (next) => (action) => {
+  const changesSession =
+    isAction(action) && ['auth/resetUser', 'auth/setUser'].includes(action.type);
+  const fromAnotherTab =
+    isAction(action) &&
+    'meta' in action &&
+    (action.meta as { authSessionRemote?: boolean } | undefined)?.authSessionRemote === true;
+  if (changesSession) advanceAuthSession(!fromAnotherTab);
+  // Authentication must reach the reducer before navigation and cache subscribers run.
+  const result = next(action);
+  if (changesSession) {
+    store.dispatch(api.util.resetApiState());
     persistor.pause();
-    await persistor.flush();
-    await persistor.purge();
-  } else if (action.type === 'auth/setUser') {
-    persistor.pause();
-    await persistor.flush();
-    await persistor.purge();
-    persistor.persist();
+    persistenceCleanup = persistenceCleanup
+      .then(async () => {
+        await persistor.flush();
+        await persistor.purge();
+      })
+      .catch(() => {
+        // In-memory auth and query data are already cleared if browser storage is unavailable.
+      })
+      .finally(() => persistor.persist());
   }
-  return next(action);
+  return result;
 };

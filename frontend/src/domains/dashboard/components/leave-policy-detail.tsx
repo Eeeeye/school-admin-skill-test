@@ -40,8 +40,7 @@ export const LeavePolicyDetail = ({ leavePolicies }: { leavePolicies: MyLeavePol
   });
 
   const onBtnClick = (id: number) => {
-    const { setValue } = methods;
-    setValue('policy', id);
+    methods.reset({ policy: id, from: new Date(), to: new Date(), note: '' });
     toggleModal();
   };
   const toggleModal = () => {

@@ -19,10 +19,10 @@ export const leaveApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getMyLeaveHistory: builder.query<LeaveRequestHistory, void>({
       query: () => `/leave/request`,
-      providesTags: (result) =>
-        result?.leaveHistory.map(({ id }) => {
-          return { type: Tag.LEAVE_HISTORY, id };
-        }) || [{ type: Tag.LEAVE_HISTORY }]
+      providesTags: (result) => [
+        { type: Tag.LEAVE_HISTORY },
+        ...(result?.leaveHistory?.map(({ id }) => ({ type: Tag.LEAVE_HISTORY, id })) ?? [])
+      ]
     }),
     applyLeaveRequest: builder.mutation<{ message: string }, LeaveRequestApi>({
       query: (payload) => ({
@@ -42,7 +42,10 @@ export const leaveApi = api.injectEndpoints({
         result
           ? [
               { type: Tag.LEAVE_HISTORY, id },
-              { type: Tag.PENDING_LEAVES, id }
+              { type: Tag.PENDING_LEAVES, id },
+              Tag.MY_LEAVE_POLICIES,
+              Tag.LEAVE_POLICY_USERS,
+              Tag.DASHBOARD
             ]
           : []
     }),
@@ -55,17 +58,20 @@ export const leaveApi = api.injectEndpoints({
         result
           ? [
               { type: Tag.LEAVE_HISTORY, id },
-              { type: Tag.PENDING_LEAVES, id }
+              { type: Tag.PENDING_LEAVES, id },
+              Tag.MY_LEAVE_POLICIES,
+              Tag.LEAVE_POLICY_USERS,
+              Tag.DASHBOARD
             ]
           : []
     }),
 
     getLeavePending: builder.query<PendingLeaveRequestHistory, void>({
       query: () => `/leave/pending`,
-      providesTags: (result) =>
-        result?.pendingLeaves.map(({ id }) => {
-          return { type: Tag.PENDING_LEAVES, id };
-        }) || [{ type: Tag.PENDING_LEAVES }]
+      providesTags: (result) => [
+        { type: Tag.PENDING_LEAVES },
+        ...(result?.pendingLeaves?.map(({ id }) => ({ type: Tag.PENDING_LEAVES, id })) ?? [])
+      ]
     }),
     handlePendingLeaveStatus: builder.mutation<{ message: string }, LeaveStatus>({
       query: ({ id, status }) => ({
@@ -77,30 +83,33 @@ export const leaveApi = api.injectEndpoints({
         result
           ? [
               { type: Tag.LEAVE_HISTORY, id },
-              { type: Tag.PENDING_LEAVES, id }
+              { type: Tag.PENDING_LEAVES, id },
+              Tag.MY_LEAVE_POLICIES,
+              Tag.LEAVE_POLICY_USERS,
+              Tag.DASHBOARD
             ]
           : []
     }),
     getLeavePolicies: builder.query<LeavePolicyData, void>({
       query: () => '/leave/policies',
-      providesTags: (result) =>
-        result?.leavePolicies.map(({ id }) => {
-          return { type: Tag.LEAVE_POLICIES, id };
-        }) || [{ type: Tag.LEAVE_POLICIES }]
+      providesTags: (result) => [
+        { type: Tag.LEAVE_POLICIES },
+        ...(result?.leavePolicies?.map(({ id }) => ({ type: Tag.LEAVE_POLICIES, id })) ?? [])
+      ]
     }),
     getEligibleLeavePolicyUsers: builder.query<EligiblePolicyUsers, void>({
       query: () => `leave/policies/eligible-users`,
-      providesTags: (result) =>
-        result?.users.map(({ id }) => {
-          return { type: Tag.LEAVE_ELIGIBLE_USERS, id };
-        }) || [{ type: Tag.LEAVE_ELIGIBLE_USERS }]
+      providesTags: (result) => [
+        { type: Tag.LEAVE_ELIGIBLE_USERS },
+        ...(result?.users?.map(({ id }) => ({ type: Tag.LEAVE_ELIGIBLE_USERS, id })) ?? [])
+      ]
     }),
     getLeavePolicyUsers: builder.query<PolicyUserData, number>({
       query: (id) => `/leave/policies/${id}/users`,
-      providesTags: (result) =>
-        result?.users.map(({ id }) => {
-          return { type: Tag.LEAVE_POLICY_USERS, id };
-        }) || [{ type: Tag.LEAVE_POLICY_USERS }]
+      providesTags: (result) => [
+        { type: Tag.LEAVE_POLICY_USERS },
+        ...(result?.users?.map(({ id }) => ({ type: Tag.LEAVE_POLICY_USERS, id })) ?? [])
+      ]
     }),
     addLeavePolicy: builder.mutation<{ message: string }, Pick<PolicyDetail, 'name'>>({
       query: ({ name }) => ({
@@ -162,10 +171,10 @@ export const leaveApi = api.injectEndpoints({
     }),
     getMyLeavePolicies: builder.query<MyLeavePolicyData, void>({
       query: () => `/leave/policies/me`,
-      providesTags: (result) =>
-        result?.leavePolicies.map(({ id }) => {
-          return { type: Tag.MY_LEAVE_POLICIES, id };
-        }) || [{ type: Tag.MY_LEAVE_POLICIES }]
+      providesTags: (result) => [
+        { type: Tag.MY_LEAVE_POLICIES },
+        ...(result?.leavePolicies?.map(({ id }) => ({ type: Tag.MY_LEAVE_POLICIES, id })) ?? [])
+      ]
     })
   })
 });

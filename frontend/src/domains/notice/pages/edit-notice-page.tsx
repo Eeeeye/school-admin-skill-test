@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Box, Paper, SelectChangeEvent } from '@mui/material';
+import { Alert, Box, Paper, SelectChangeEvent } from '@mui/material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { useForm } from 'react-hook-form';
@@ -7,6 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-toastify';
 import { SerializedError } from '@reduxjs/toolkit';
 import { Edit } from '@mui/icons-material';
+import { useSelector } from 'react-redux';
+import { getUserId, getUserRole } from '@/domains/auth/slice';
+import { canEditNotice } from '@/utils/helpers/get-notice-permission';
 
 import { PageContentHeader } from '@/components/page-content-header';
 import { getErrorMsg } from '@/utils/helpers/get-error-message';
@@ -25,6 +28,8 @@ const initialState: NoticeFormProps = {
 
 export const EditNotice = () => {
   const { id } = useParams();
+  const userId = useSelector(getUserId);
+  const role = useSelector(getUserRole);
   const navigate = useNavigate();
   const { data, isLoading, isError, error } = useGetNoticeDetailQuery(id);
   const [selectedRoleId, setSelectedRoleId] = React.useState<number>(0);
@@ -40,7 +45,7 @@ export const EditNotice = () => {
       const { title, description, status, recipientType, recipientRole, firstField } = data;
       methods.setValue('title', title);
       methods.setValue('description', description);
-      methods.setValue('status', status);
+      methods.setValue('status', role !== 'admin' && status > 3 ? 2 : status);
       methods.setValue('recipientType', recipientType);
       methods.setValue('recipientRole', recipientRole ?? 0);
       methods.setValue('firstField', firstField ?? '');
@@ -48,7 +53,7 @@ export const EditNotice = () => {
         setSelectedRoleId(Number(recipientRole));
       }
     }
-  }, [data, methods]);
+  }, [data, methods, role]);
 
   const onSaveNotice = async (data: NoticeFormProps) => {
     try {
@@ -79,9 +84,19 @@ export const EditNotice = () => {
     return <div>{getErrorMsg(error)?.message}</div>;
   }
 
+  if (!data) return <Alert severity='info'>Notice record not found.</Alert>;
+  if (!canEditNotice(data.authorId, data.status, userId, role)) {
+    return <Alert severity='warning'>You cannot edit this notice.</Alert>;
+  }
+
   return (
     <>
       <PageContentHeader icon={<Edit sx={{ mr: 1 }} />} heading='Edit Notice' />
+      {role !== 'admin' && data.status > 3 && (
+        <Alert severity='info' sx={{ mb: 2 }}>
+          Saving this notice will submit it for approval again.
+        </Alert>
+      )}
       <Box component={Paper} sx={{ padding: '20px' }}>
         <Box sx={{ width: '100%' }}>
           <NoticeForm

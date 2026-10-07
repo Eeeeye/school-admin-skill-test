@@ -70,15 +70,15 @@ test("missing staff and nonexistent departments never reach the write query", as
   await assert.rejects(missing.service.processUpdateStaff({ userId: 9, departmentId: 2 }), { statusCode: 404 });
   assert.equal(missing.writes.length, 0);
   const invalid = fixture();
-  await assert.rejects(invalid.service.processAddStaff({ ...input, departmentId: 999 }), { statusCode: 400 });
+  await assert.rejects(invalid.service.processAddStaff({ ...input, departmentId: 999 }, { id: 1, roleId: 1 }), { statusCode: 400 });
   assert.equal(invalid.writes.length, 0);
 });
 
 test("duplicate staff emails are conflicts and mail failures preserve the created user ID", async () => {
   const duplicate = fixture({ writeResult: { status: false, message: "Email already exists" } });
-  await assert.rejects(duplicate.service.processAddStaff(input), { statusCode: 409 });
+  await assert.rejects(duplicate.service.processAddStaff(input, { id: 1, roleId: 1 }), { statusCode: 409 });
   const unavailable = fixture({ mailFailure: true });
-  const result = await unavailable.service.processAddStaff(input);
+  const result = await unavailable.service.processAddStaff(input, { id: 1, roleId: 1 });
   assert.equal(result.userId, 9);
   assert.match(result.message, /failed to send verification email/);
 });
@@ -119,7 +119,8 @@ test("staff repository merges partial updates only after locking the current row
     "../../utils": { ApiError }, "../../config": { db: { connect: async () => client } },
   });
   await repository.updateStaffById(9, { departmentId: null });
-  assert.match(queries[1].sql, /FOR UPDATE/);
+  assert.match(queries[1].sql, /pg_advisory_xact_lock/);
+  assert.match(queries[2].sql, /FOR UPDATE/);
   const written = queries.find(({ sql }) => sql.includes("staff_add_update")).params[0];
   assert.equal(written.name, current.name);
   assert.equal(written.dob, current.dob);

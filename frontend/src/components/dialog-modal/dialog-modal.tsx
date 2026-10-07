@@ -43,7 +43,7 @@ export const DialogModal: React.FC<DialogModalProps> = ({
 }) => {
   const handleClose = () => {
     {
-      Boolean(isModalClosedOnOutClick) && closeModal();
+      !isSaving && isModalClosedOnOutClick && closeModal();
     }
   };
 
@@ -58,7 +58,14 @@ export const DialogModal: React.FC<DialogModalProps> = ({
       <DialogTitle id='draggable-dialog-title'>{titleText}</DialogTitle>
       <DialogContent>{children}</DialogContent>
       <DialogActions>
-        <Button type='button' size='small' variant='contained' color='error' onClick={closeModal}>
+        <Button
+          disabled={isSaving}
+          type='button'
+          size='small'
+          variant='contained'
+          color='error'
+          onClick={closeModal}
+        >
           {actionFooterCancelText ?? 'Cancel'}
         </Button>
         <LoadingButton

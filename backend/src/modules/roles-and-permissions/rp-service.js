@@ -19,7 +19,7 @@ const {
 
 const normalizePositiveId = (id, label = "id") => {
   const normalizedId = Number(id);
-  if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+  if (!["string", "number"].includes(typeof id) || !/^[1-9]\d*$/.test(String(id)) || !Number.isInteger(normalizedId) || normalizedId <= 0 || normalizedId > 2147483647) {
     throw new ApiError(400, `Invalid ${label}`);
   }
   return normalizedId;
@@ -80,6 +80,12 @@ const updateRole = async (id, name) => {
   const normalizedId = await checkIfRoleIdExist(id);
   const normalizedName = validateRoleName(name);
 
+  const role = await getRoleById(normalizedId);
+  if (!role.is_editable) throw new ApiError(403, "Built-in roles cannot be renamed");
+  if (role.name.toLowerCase() !== normalizedName.toLowerCase() && await doesRoleNameExist(normalizedName) > 0) {
+    throw new ApiError(409, "Role name already exists");
+  }
+
   const affectedRow = await updateRoleById(normalizedId, normalizedName);
   if (affectedRow <= 0) {
     throw new ApiError(500, "Unable to update role");
@@ -93,6 +99,8 @@ const processRoleStatus = async (id, status) => {
   if (typeof status !== "boolean") {
     throw new ApiError(400, "Role status must be a boolean");
   }
+  const role = await getRoleById(normalizedId);
+  if (!role.is_editable) throw new ApiError(403, "Built-in roles cannot be disabled");
 
   const affectedRow = await enableOrDisableRoleStatusByRoleId(normalizedId, status);
   if (affectedRow <= 0) {
@@ -164,13 +172,18 @@ const fetchUsersByRoleId = async (id) => {
   return users;
 };
 
-const processSwitchRole = async (userId, newRoleId) => {
+const processSwitchRole = async (userId, newRoleId, actor) => {
   const normalizedUserId = normalizePositiveId(userId, "user id");
   const normalizedRoleId = await checkIfRoleIdExist(newRoleId);
   const user = await findUserById(normalizedUserId);
   if (!user) {
     throw new ApiError(404, "Invalid user id");
   }
+  if (Number(actor?.roleId) !== 1) throw new ApiError(403, "Only administrators may assign roles");
+  if (Number(actor.id) === normalizedUserId && user.role_id !== normalizedRoleId) throw new ApiError(400, "You cannot change your own role");
+  if (user.role_id === 3 || normalizedRoleId === 3) throw new ApiError(400, "Student roles must be managed through student records");
+  const role = await getRoleById(normalizedRoleId);
+  if (!role.is_active) throw new ApiError(400, "Selected role is disabled");
   const affectedRow = await switchUserRole(normalizedUserId, normalizedRoleId);
   if (affectedRow <= 0) {
     throw new ApiError(500, "Unable to switch role");

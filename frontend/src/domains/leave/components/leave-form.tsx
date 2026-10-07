@@ -57,6 +57,8 @@ export const LeaveForm: React.FC<LeaveFormProps> = ({ methods, leavePolicies }) 
                 slotProps={{
                   textField: {
                     helperText: error?.message,
+                    error: Boolean(error),
+                    fullWidth: true,
                     size: 'small'
                   }
                 }}
@@ -77,6 +79,8 @@ export const LeaveForm: React.FC<LeaveFormProps> = ({ methods, leavePolicies }) 
                 slotProps={{
                   textField: {
                     helperText: error?.message,
+                    error: Boolean(error),
+                    fullWidth: true,
                     size: 'small'
                   }
                 }}

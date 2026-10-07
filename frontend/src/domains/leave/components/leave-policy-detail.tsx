@@ -4,6 +4,9 @@ import { Box, Button, Grid2, Paper } from '@mui/material';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-toastify';
+import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { SerializedError } from '@reduxjs/toolkit';
+import { getErrorMsg } from '@/utils/helpers/get-error-message';
 
 import { DialogModal } from '@/components/dialog-modal';
 import { LeaveDetail } from './leave-detail';
@@ -30,6 +33,12 @@ export const LeavePolicyDetail = () => {
   });
 
   const handleRequest = () => {
+    methods.reset({
+      policy: leavePolicies[0]?.id ?? 0,
+      from: new Date(),
+      to: new Date(),
+      note: ''
+    });
     setModalOpen(true);
   };
   const closeModal = () => {
@@ -48,7 +57,7 @@ export const LeavePolicyDetail = () => {
       toast.success(result.message);
       closeModal();
     } catch (error) {
-      console.log(error);
+      toast.error(getErrorMsg(error as FetchBaseQueryError | SerializedError).message);
     }
   };
 
@@ -79,6 +88,7 @@ export const LeavePolicyDetail = () => {
         size='small'
         variant='contained'
         onClick={handleRequest}
+        disabled={leavePolicies.length === 0}
         startIcon={<CalendarMonth />}
         sx={{ marginBottom: '10px' }}
       >

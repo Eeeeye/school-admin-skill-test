@@ -15,6 +15,12 @@ import { ToastContainer } from 'react-toastify';
 import { ThemeProvider } from '@mui/material';
 import { theme } from './theme/index.ts';
 import { persistor, store } from './store';
+import { observeAuthSessionChanges } from './api/auth-session';
+
+const stopSessionObserver = observeAuthSessionChanges(() => {
+  store.dispatch({ type: 'auth/resetUser', meta: { authSessionRemote: true } });
+});
+if (import.meta.hot) import.meta.hot.dispose(stopSessionObserver);
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

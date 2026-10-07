@@ -14,7 +14,7 @@ function loadWithMocks(relativePath, mocks) {
   try { return require(filename); } finally { Module._load = original; }
 }
 
-function studentsFixture({ existing = { id: 3, name: "Student", email: "student@example.test", class: "Grade 1", section: "A" }, sectionList = "A,B", missingStudent = false } = {}) {
+function studentsFixture({ existing = { id: 3, name: "Student", email: "student@example.test", class: "Grade 1", section: "A" }, sectionList = "A,B", extraSections = [], missingStudent = false } = {}) {
   const writes = [];
   const statements = [];
   let releases = 0;
@@ -24,7 +24,7 @@ function studentsFixture({ existing = { id: 3, name: "Student", email: "student@
       if (query.includes("SELECT id FROM users")) return { rowCount: missingStudent ? 0 : 1 };
       if (query.includes('p.class_name AS "class"')) return { rows: [existing] };
       if (query.startsWith("SELECT sections FROM classes")) return { rows: params[0] === "Missing" ? [] : [{ sections: sectionList }] };
-      if (query.startsWith("SELECT id, name FROM sections")) return { rows: params[0] === "A" ? [{ id: 7, name: "A" }] : params[0] === "B" ? [{ id: 8, name: "B" }] : [{ id: 9, name: "C" }] };
+      if (query.startsWith("SELECT id, name FROM sections")) return { rows: [{ id: 7, name: "A" }, { id: 8, name: "B" }, { id: 9, name: "C" }, ...extraSections] };
       if (query.includes("student_add_update")) { writes.push(params[0]); return { rows: [{ status: true, userId: 3, message: "Success" }] }; }
       return { rows: [] };
     },
@@ -44,6 +44,12 @@ test("student create accepts class sections represented by names or legacy IDs",
     assert.ok(fixture.statements.includes("COMMIT"));
     assert.equal(fixture.releases, 1);
   }
+});
+
+test("numeric section names cannot be confused with another section's legacy ID", async () => {
+  const fixture = studentsFixture({ sectionList: "7", extraSections: [{ id: 10, name: "7" }] });
+  assert.equal((await fixture.repository.addOrUpdateStudent({ class: "Grade 1", section: "A" })).status, false);
+  assert.equal((await fixture.repository.addOrUpdateStudent({ class: "Grade 1", section: "7" })).status, true);
 });
 
 test("student create rejects a valid section that belongs to another class and sections without classes", async () => {
@@ -66,6 +72,14 @@ test("student partial update retains omitted placement fields and validates the 
   const invalid = studentsFixture({ sectionList: "B" });
   assert.equal((await invalid.repository.updateStudentById(3, { class: "Grade 2" })).status, false);
   assert.equal(invalid.writes.length, 0);
+});
+
+test("student placement changes take the shared academic lock before locking user rows", async () => {
+  const fixture = studentsFixture();
+  await fixture.repository.updateStudentById(3, { name: "New name" });
+  const academicLock = fixture.statements.findIndex((sql) => sql.includes("pg_advisory_xact_lock(7183001)"));
+  const userLock = fixture.statements.findIndex((sql) => sql.includes("SELECT id FROM users"));
+  assert.ok(academicLock >= 0 && academicLock < userLock);
 });
 
 test("clearing a student's class clears an omitted section; explicit sections without a class are rejected", async () => {

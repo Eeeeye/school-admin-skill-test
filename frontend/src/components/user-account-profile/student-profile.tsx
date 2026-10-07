@@ -1,5 +1,6 @@
 import * as React from 'react';
-import { Grid2 } from '@mui/material';
+import { Alert, Grid2, LinearProgress } from '@mui/material';
+import { getErrorMsg } from '@/utils/helpers/get-error-message';
 import { useGetStudentDetail } from '@/domains/student/hooks/use-get-student-detail';
 import {
   MiniAvatar,
@@ -13,7 +14,10 @@ type StudentProfileProps = {
 };
 
 export const StudentProfile: React.FC<StudentProfileProps> = ({ id }) => {
-  const student = useGetStudentDetail(id);
+  const { currentData: student, isFetching, error } = useGetStudentDetail(id);
+  if (isFetching && !student) return <LinearProgress aria-label='Loading student' />;
+  if (error) return <Alert severity='error'>{getErrorMsg(error).message}</Alert>;
+  if (!student) return <Alert severity='info'>Student record not found.</Alert>;
   const {
     name,
     email,

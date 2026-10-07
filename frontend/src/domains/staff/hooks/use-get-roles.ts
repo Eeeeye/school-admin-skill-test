@@ -1,23 +1,12 @@
-import * as React from 'react';
-import { useLazyGetRolesQuery } from '@/domains/role-and-permission/api';
-import { Role } from '@/domains/role-and-permission/types';
+import { useEffect } from 'react';
+import { toast } from 'react-toastify';
+import { useGetRolesQuery } from '@/domains/role-and-permission/api';
+import { getErrorMsg } from '@/utils/helpers/get-error-message';
 
 export const useGetRoles = () => {
-  const [roles, setRoles] = React.useState<Role[]>([]);
-  const [getRoles] = useLazyGetRolesQuery();
-
-  React.useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const result = await getRoles().unwrap();
-        setRoles(result.roles);
-      } catch (error) {
-        console.log(error);
-      }
-    };
-
-    fetchRoles();
-  }, [getRoles]);
-
-  return roles;
+  const { data, error } = useGetRolesQuery();
+  useEffect(() => {
+    if (error) toast.error(getErrorMsg(error).message);
+  }, [error]);
+  return data?.roles ?? [];
 };

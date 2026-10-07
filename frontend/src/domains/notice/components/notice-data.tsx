@@ -9,15 +9,14 @@ import { Notice } from '../types';
 import { NoticeStatus } from './notice-status';
 import { DATE_TIME_24_HR_FORMAT, getFormattedDate } from '@/utils/helpers/date';
 import {
-  isApprovePermissionAvailable,
-  isDeletePermissionAvailable,
-  isEditPermissionAvailable,
-  isRejectPermissionAvailable
+  canEditNotice,
+  canDeleteNotice,
+  canReviewNotice
 } from '@/utils/helpers/get-notice-permission';
 import { Link } from 'react-router-dom';
 import { menuItemTexts } from '@/constants';
 import { useSelector } from 'react-redux';
-import { getUserId } from '@/domains/auth/slice';
+import { getUserId, getUserRole } from '@/domains/auth/slice';
 import { DialogModal } from '@/components/dialog-modal';
 import { toast } from 'react-toastify';
 import { useHandleMenuAction } from '@/hooks';
@@ -56,6 +55,7 @@ export const NoticeData: React.FC<NoticeDataProps> = ({
 }) => {
   const [state, setState] = React.useState<State>(initialState);
   const currentUserId = useSelector(getUserId);
+  const currentRole = useSelector(getUserRole);
   const { handleAction } = useHandleMenuAction();
 
   const columns: MRT_ColumnDef<Notice>[] = React.useMemo(
@@ -127,17 +127,17 @@ export const NoticeData: React.FC<NoticeDataProps> = ({
       const reviewerActions = [
         <MenuItem
           key={'approveNotice'}
-          disabled={isApprovePermissionAvailable(statusId)}
+          disabled={!canReviewNotice(statusId, currentRole)}
           onClick={() => {
             closeMenu();
-            onNoticeMenuItemClick(id, 'APPROVE_NOTICE');
+            onNoticeMenuItemClick(id, statusId === 3 ? 'DELETE_NOTICE' : 'APPROVE_NOTICE');
           }}
         >
-          Approve
+          {statusId === 3 ? 'Approve deletion' : 'Approve'}
         </MenuItem>,
         <MenuItem
           key={'rejectNotice'}
-          disabled={isRejectPermissionAvailable(statusId)}
+          disabled={!canReviewNotice(statusId, currentRole)}
           onClick={() => {
             closeMenu();
             onNoticeMenuItemClick(id, 'REJECT_NOTICE');
@@ -147,20 +147,23 @@ export const NoticeData: React.FC<NoticeDataProps> = ({
         </MenuItem>,
         <MenuItem
           key={'deleteNoticeByReviewer'}
-          disabled={isDeletePermissionAvailable(authorId, statusId, currentUserId)}
+          disabled={!canDeleteNotice(authorId, statusId, currentUserId, currentRole)}
           onClick={() => {
             closeMenu();
-            onNoticeMenuItemClick(id, 'DELETE_NOTICE');
+            onNoticeMenuItemClick(
+              id,
+              currentRole === 'admin' ? 'DELETE_NOTICE' : 'DELETE_NOTICE_BY_SELF'
+            );
           }}
         >
-          Delete
+          {currentRole === 'admin' ? 'Delete' : 'Request deletion'}
         </MenuItem>
       ];
       const userActions = [
         <MenuItem
           key={'editNotice'}
           onClick={() => closeMenu()}
-          disabled={isEditPermissionAvailable(authorId, statusId, currentUserId)}
+          disabled={!canEditNotice(authorId, statusId, currentUserId, currentRole)}
           component={Link}
           to={`/app/notices/edit/${id}`}
         >
@@ -168,13 +171,16 @@ export const NoticeData: React.FC<NoticeDataProps> = ({
         </MenuItem>,
         <MenuItem
           key={'deleteNoticeBySelf'}
-          disabled={isDeletePermissionAvailable(authorId, statusId, currentUserId)}
+          disabled={!canDeleteNotice(authorId, statusId, currentUserId, currentRole)}
           onClick={() => {
             closeMenu();
-            onNoticeMenuItemClick(id, 'DELETE_NOTICE_BY_SELF');
+            onNoticeMenuItemClick(
+              id,
+              currentRole === 'admin' ? 'DELETE_NOTICE' : 'DELETE_NOTICE_BY_SELF'
+            );
           }}
         >
-          Delete
+          {currentRole === 'admin' ? 'Delete' : 'Request deletion'}
         </MenuItem>
       ];
 
@@ -191,16 +197,15 @@ export const NoticeData: React.FC<NoticeDataProps> = ({
 
   const onSave = async () => {
     try {
-      setState((prevState) => ({ ...prevState, isSaving: !prevState.isSaving }));
+      setState((prevState) => ({ ...prevState, isSaving: true }));
       const { noticeId, menuAction } = state;
       const result = await handleAction(menuAction, noticeId);
       toast.info(result?.message);
       toggleModal();
     } catch (error) {
-      console.log(error);
       toast.error(getErrorMsg(error as FetchBaseQueryError | SerializedError).message);
     } finally {
-      setState((prevState) => ({ ...prevState, isSaving: !prevState.isSaving }));
+      setState((prevState) => ({ ...prevState, isSaving: false }));
     }
   };
 

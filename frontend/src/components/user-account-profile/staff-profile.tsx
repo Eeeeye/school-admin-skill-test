@@ -1,4 +1,5 @@
-import { Grid2 } from '@mui/material';
+import { Alert, Grid2, LinearProgress } from '@mui/material';
+import { getErrorMsg } from '@/utils/helpers/get-error-message';
 import {
   MiniAvatar,
   Others,
@@ -12,7 +13,10 @@ type StaffProfileProps = {
 };
 
 export const StaffProfile: React.FC<StaffProfileProps> = ({ id }) => {
-  const staffDetail = useGetStaffDetail(id);
+  const { currentData: staffDetail, isFetching, error } = useGetStaffDetail(id);
+  if (isFetching && !staffDetail) return <LinearProgress aria-label='Loading staff' />;
+  if (error) return <Alert severity='error'>{getErrorMsg(error).message}</Alert>;
+  if (!staffDetail) return <Alert severity='info'>Staff record not found.</Alert>;
 
   const {
     name,

@@ -180,6 +180,10 @@ With the Docker stack running:
 node scripts/test-product-resilience.cjs
 # Full UI flow (requires Playwright and Chrome, or CHROME_PATH)
 node scripts/test-product-ui.cjs
+# UI regressions: refresh races, session cache, missing records, empty lists and validation
+node scripts/test-audit-ui.cjs
+# Restore DB, certificate chain and IPFS into disposable volumes (isolated review stack only)
+COMPOSE_PROJECT_NAME=school-review node scripts/test-product-restore.cjs
 ```
 
 The API runner covers student/certificate, notice/leave, and department/staff/
@@ -188,7 +192,13 @@ uses a temporary database and leaves the application database unchanged. Local o
 transactions remain in chain history. The UI smoke creates and revokes a demo
 certificate and deletes its test student. Unit/contract tests are available with
 `npm test` in `backend/` and `pnpm test` in `blockchain/`; the frontend supports
-`pnpm exec tsc --noEmit`, `pnpm lint`, and `pnpm build`.
+`node --test test/*.test.cjs`, `pnpm exec tsc --noEmit`, `pnpm lint`, and `pnpm build`.
+
+The [verification workflow](.github/workflows/verify.yml) runs these checks on
+pushes and pull requests using a disposable local Docker stack on the CI runner.
+It includes frontend session-isolation regressions, backend authorization and
+academic-relationship checks, browser journeys, dependency recovery and a restore
+rehearsal. It does not have deployment credentials or update the hosted server.
 
 Earlier local product verification on 2026-10-07 passed 131 real HTTP checks,
 52 backend unit tests, 9 contract tests and 10 chain/helper tests. Browser checks covered 12

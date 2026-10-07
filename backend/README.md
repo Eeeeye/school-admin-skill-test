@@ -42,6 +42,18 @@ cookies. Protected requests must send the CSRF cookie value in the
 then apply the role permission for the exact path and method. Role and
 permission administration is restricted to administrators.
 
+Staff creation, role assignment and staff login-email changes also require an
+administrator. Delegated staff-profile editors cannot edit administrator
+accounts. Disabling an account or role revokes its sessions, so enabling it later
+requires a fresh login. Each token has a unique ID; simultaneous logins and
+password changes serialize on the account row.
+
+Class and section changes preserve student placement and teacher assignments in
+transactions. Renaming a section updates class membership; renaming a class
+updates its notice audience. Removing a section from a class is rejected while
+students or teachers still use it. Deleting a class clears its students' class
+and section and removes the corresponding teacher assignments.
+
 ### Authentication
 
 | Method | Path | Purpose |
@@ -118,6 +130,7 @@ checks use the running five-service stack:
 # from repository root
 ./scripts/test-product.sh
 docker compose exec -T backend node < backend/test/school-workflows.integration.js
+docker compose exec -T backend node < backend/test/audit.integration.js
 ```
 
 ## Production notes

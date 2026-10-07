@@ -89,7 +89,7 @@ const addOrUpdateStaff = async (payload) => {
 
 const reviewStaffStatus = async (payload) => {
     const now = new Date();
-    const { status, userId, reviewerId } = payload;
+    const { status, userId, reviewerId, actorRoleId } = payload;
     const query = `
         UPDATE users
         SET
@@ -98,11 +98,23 @@ const reviewStaffStatus = async (payload) => {
             status_last_reviewer_id = $4
         WHERE id = $2
         AND role_id != 3
+        AND (role_id != 1 OR $5 = 1)
         AND ($1 = false OR is_email_verified = true)
     `;
-    const queryParams = [status, userId, now, reviewerId];
-    const { rowCount } = await processDBRequest({ query, queryParams });
-    return rowCount;
+    const queryParams = [status, userId, now, reviewerId, Number(actorRoleId) || 0];
+    const client = await db.connect();
+    try {
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(7183001)");
+        await client.query("SELECT id FROM users WHERE id=$1 AND role_id!=3 FOR UPDATE", [userId]);
+        const { rowCount } = await client.query(query, queryParams);
+        if (rowCount && !status) await client.query("DELETE FROM user_refresh_tokens WHERE user_id=$1", [userId]);
+        await client.query("COMMIT");
+        return rowCount;
+    } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+    } finally { client.release(); }
 }
 
 const validateStaffReferences = async ({ role, departmentId, reporterId, userId }, client) => {
@@ -122,16 +134,26 @@ const validateStaffReferences = async ({ role, departmentId, reporterId, userId 
     if (!rows[0]?.assignment_valid) throw new ApiError(409, "Reassign this teacher's classes before changing their role");
 };
 
-const updateStaffById = async (id, payload) => {
+const updateStaffById = async (id, payload, actor) => {
     const client = await db.connect();
     try {
         await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(7183001)");
         const locked = await client.query("SELECT id FROM users WHERE id=$1 AND role_id!=3 FOR UPDATE", [id]);
         if (!locked.rows.length) throw new ApiError(404, "Staff detail not found");
         const current = await getStaffDetailById(id, client);
         const merged = { ...current, ...payload, userId: id };
+        if (Number(actor?.roleId) !== 1 && (Number(current.role) === 1 || Number(merged.role) !== Number(current.role) || merged.email !== current.email)) {
+            throw new ApiError(403, "Only administrators may change staff login emails, assign roles or change administrator accounts");
+        }
+        if (Number(actor?.id) === id && (!merged.systemAccess || Number(merged.role) !== Number(current.role))) {
+            throw new ApiError(400, "You cannot disable or change the role of your own account");
+        }
         await validateStaffReferences(merged, client);
         const { rows } = await client.query("SELECT * FROM staff_add_update($1)", [merged]);
+        if (rows[0].status && (current.role !== merged.role || current.email !== merged.email || merged.systemAccess === false)) {
+            await client.query("DELETE FROM user_refresh_tokens WHERE user_id = $1", [id]);
+        }
         await client.query(rows[0].status ? "COMMIT" : "ROLLBACK");
         return rows[0];
     } catch (error) {

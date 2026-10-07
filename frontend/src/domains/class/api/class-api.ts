@@ -5,10 +5,10 @@ export const classApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getClasses: builder.query<ClassData, void>({
       query: () => `/classes`,
-      providesTags: (result) =>
-        result?.classes?.map(({ id }) => {
-          return { type: Tag.CLASSES, id };
-        }) || [{ type: Tag.CLASSES }]
+      providesTags: (result) => [
+        { type: Tag.CLASSES },
+        ...(result?.classes?.map(({ id }) => ({ type: Tag.CLASSES, id })) ?? [])
+      ]
     }),
     getClassDetail: builder.query<ClassDataPropsWithId, string | undefined>({
       query: (id) => `/classes/${id}`,
@@ -20,7 +20,7 @@ export const classApi = api.injectEndpoints({
         method: 'POST',
         body: payload
       }),
-      invalidatesTags: [Tag.CLASSES]
+      invalidatesTags: [Tag.CLASSES, Tag.NOTICE_RECIPIENT_LIST]
     }),
     updateClass: builder.mutation<{ message: string }, ClassDataPropsWithId>({
       query: ({ id, ...payload }) => ({
@@ -28,14 +28,19 @@ export const classApi = api.injectEndpoints({
         method: 'PUT',
         body: payload
       }),
-      invalidatesTags: (_result, _error, { id }) => [{ type: Tag.CLASSES, id }]
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: Tag.CLASSES, id },
+        Tag.NOTICE_RECIPIENT_LIST,
+        Tag.STUDENTS,
+        Tag.CLASS_TEACHERS
+      ]
     }),
     deleteClass: builder.mutation<{ message: string }, number>({
       query: (id) => ({
         url: `/classes/${id}`,
         method: 'DELETE'
       }),
-      invalidatesTags: [Tag.CLASSES]
+      invalidatesTags: [Tag.CLASSES, Tag.NOTICE_RECIPIENT_LIST, Tag.STUDENTS, Tag.CLASS_TEACHERS]
     })
   })
 });

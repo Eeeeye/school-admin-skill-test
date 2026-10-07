@@ -6,10 +6,10 @@ const departmentApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getDepartments: builder.query<DepartmentData, void>({
       query: () => `/departments`,
-      providesTags: (result) =>
-        result?.departments?.map(({ id }) => {
-          return { type: Tag.DEPARTMENTS, id };
-        }) || [{ type: Tag.DEPARTMENTS }]
+      providesTags: (result) => [
+        { type: Tag.DEPARTMENTS },
+        ...(result?.departments?.map(({ id }) => ({ type: Tag.DEPARTMENTS, id })) ?? [])
+      ]
     }),
     addNewDepartment: builder.mutation<{ message: string }, DepartmentForm>({
       query: ({ name }) => ({
@@ -17,7 +17,8 @@ const departmentApi = api.injectEndpoints({
         method: 'POST',
         body: { name }
       }),
-      invalidatesTags: (result) => (result ? [Tag.DEPARTMENTS, Tag.STAFFS] : [])
+      invalidatesTags: (result) =>
+        result ? [Tag.DEPARTMENTS, Tag.STAFFS, Tag.NOTICE_RECIPIENT_LIST] : []
     }),
     getDepartment: builder.query<DepartmentFormWithId, number>({
       query: (id) => `departments/${id}`,
@@ -30,14 +31,15 @@ const departmentApi = api.injectEndpoints({
         body: { name }
       }),
       invalidatesTags: (result, _error, { id }) =>
-        result ? [{ type: Tag.DEPARTMENTS, id }, Tag.STAFFS] : []
+        result ? [{ type: Tag.DEPARTMENTS, id }, Tag.STAFFS, Tag.NOTICE_RECIPIENT_LIST] : []
     }),
     deleteDepartment: builder.mutation<{ message: string }, number>({
       query: (id) => ({
         url: `/departments/${id}`,
         method: 'DELETE'
       }),
-      invalidatesTags: (result) => (result ? [Tag.DEPARTMENTS, Tag.STAFFS] : [])
+      invalidatesTags: (result) =>
+        result ? [Tag.DEPARTMENTS, Tag.STAFFS, Tag.NOTICE_RECIPIENT_LIST] : []
     })
   })
 });

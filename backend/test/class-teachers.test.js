@@ -14,14 +14,14 @@ function loadWithMocks(relativePath, mocks) {
   try { return require(filename); } finally { Module._load = original; }
 }
 
-function fixture({ teacherExists = true, duplicate = false, previous, failSync = false } = {}) {
+function fixture({ teacherExists = true, duplicate = false, previous, failSync = false, sectionList = "A, B", extraSections = [] } = {}) {
   const queries = [];
   let released = false;
   const client = {
     query: async (sql, parameters) => {
       queries.push({ sql, parameters });
-      if (sql.includes("SELECT sections FROM classes")) return { rows: [{ sections: "A, B" }] };
-      if (sql.includes("SELECT id FROM sections")) return { rows: [{ id: 1 }] };
+      if (sql.includes("SELECT sections FROM classes")) return { rows: [{ sections: sectionList }] };
+      if (sql.includes("SELECT id, name FROM sections")) return { rows: [{ id: 1, name: "A" }, { id: 2, name: "B" }, ...extraSections] };
       if (sql.includes("role_id=2 FOR SHARE")) return { rows: teacherExists ? [{ id: 8 }] : [] };
       if (sql.includes("SELECT class_name, section_name")) return { rows: previous ? [previous] : [] };
       if (sql.includes("AND ($3::INTEGER IS NULL")) return { rows: duplicate ? [{ id: 1 }] : [] };
@@ -44,6 +44,12 @@ test("teacher assignment commits the assignment and existing students' reporting
   assert.match(sync.sql, /u\.role_id=3/);
   assert.equal(queries.at(-1).sql, "COMMIT");
   assert.equal(released(), true);
+});
+
+test("teacher assignment resolves numeric section names before legacy IDs", async () => {
+  const { repository } = fixture({ sectionList: "1", extraSections: [{ id: 7, name: "1" }] });
+  await assert.rejects(repository.addClassTeacher({ className: "Grade 1", section: "A", teacher: 8 }), { statusCode: 400 });
+  await repository.addClassTeacher({ className: "Grade 1", section: "1", teacher: 8 });
 });
 
 test("moving an assignment synchronizes students in both the old and new classes", async () => {

@@ -1,5 +1,6 @@
 const { processDBRequest, ApiError } = require("../../utils");
 const { db } = require("../../config");
+const { resolveSections } = require("../../utils/academic-integrity");
 
 const getClassTeachers = async () => {
     const query = `
@@ -38,11 +39,8 @@ const saveClassTeacher = async ({ id, className, section, teacher }) => {
             if (!previous) throw new ApiError(404, "Class teacher assignment not found");
         }
         const classResult = await client.query("SELECT sections FROM classes WHERE name=$1 FOR SHARE", [className]);
-        const allowedSections = classResult.rows[0]?.sections?.split(",").map((value) => value.trim()) || [];
-        const sectionResult = await client.query("SELECT id FROM sections WHERE name=$1 FOR SHARE", [section]);
-        if (!sectionResult.rows.length) throw new ApiError(400, "Section does not exist");
-        if (!classResult.rows.length || (!allowedSections.includes(section)
-            && !allowedSections.includes(String(sectionResult.rows[0].id)))) {
+        const allowedSections = classResult.rows[0] ? await resolveSections(client, classResult.rows[0].sections || "") : [];
+        if (!allowedSections.includes(section)) {
             throw new ApiError(400, "Section does not belong to the selected class");
         }
         const teacherResult = await client.query("SELECT id FROM users WHERE id=$1 AND role_id=2 FOR SHARE", [teacher]);

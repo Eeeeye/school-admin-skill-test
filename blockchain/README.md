@@ -10,7 +10,8 @@ This package expects Node.js 20 or newer because the metadata helper uses the
 built-in `fetch`, `FormData`, and `Blob` APIs.
 
 ```bash
-pnpm install
+corepack prepare pnpm@9.15.9 --activate
+pnpm install --frozen-lockfile
 pnpm compile
 pnpm test
 ```
@@ -20,6 +21,50 @@ with a local fake Kubo endpoint. It also starts disposable Ganache processes to
 verify persistence and bootstrap metadata validation. No pre-existing chain or
 IPFS daemon is required. The Solidity compiler is pinned to `solc@0.8.24` in the
 lockfile, so compilation requires no separate compiler download.
+
+## Runtime dependencies and security maintenance
+
+The Docker build compiles with Hardhat in one stage and installs only production
+dependencies in a separate, clean stage. The final image contains Ganache,
+ethers and the explicitly pinned cryptography packages; it does not contain
+Hardhat, the Solidity compiler, test runners or deployment plugins. The unused
+Hardhat toolbox has been removed. Compiler settings, Ganache version, chain ID
+and contract bytecode are unchanged by this dependency update.
+
+Ganache 7.9.2 includes bundled copies of dependencies that a lockfile-only
+`pnpm audit` does not report. `scripts/harden-ganache.cjs` replaces its bundled
+`secp256k1`, `elliptic` and `bn.js` with locked, compatible versions 4.0.5,
+6.6.1 and 4.12.3. This addresses the published
+[elliptic signing vulnerability](https://github.com/advisories/GHSA-vjh7-7g9h-fjfh),
+[secp256k1 ECDH vulnerability](https://github.com/advisories/GHSA-584q-6j8j-r5pm)
+and [bn.js denial of service](https://github.com/advisories/GHSA-378v-28hj-76wf).
+It changes only installed package resolution, not Ganache source or chain data.
+Docker runs and verifies it before copying dependencies into the runtime image;
+`pnpm test` and `pnpm node:persistent` also run it automatically. If launching
+`scripts/local-chain.js` directly after a new installation, run
+`pnpm harden:runtime` first.
+
+Recheck using the pinned pnpm version, since advisory results change over time:
+
+```bash
+pnpm --version # 9.15.9
+pnpm harden:runtime
+node scripts/harden-ganache.cjs --check
+pnpm audit --prod
+pnpm audit
+pnpm test
+```
+
+At the October 2026 audit, the production lockfile reported one low-severity
+[elliptic advisory without an available fix](https://github.com/advisories/GHSA-848j-6mx2-7j84).
+The full development graph still reported 11 high, 12 moderate and 7 low
+advisories in Hardhat's development dependencies and elliptic. These results are
+not a claim that every bundled package or the application is vulnerability-free.
+Do not expose RPC publicly or use this demonstration chain with real assets.
+Keep development tools out of the running server; migrating Hardhat major
+versions requires separate compatibility validation. The tests check actual
+Ganache dependency resolution and deterministic signature compatibility, as
+well as persistent certificate state after a restart.
 
 Start a local chain in one terminal and deploy in another:
 
@@ -31,6 +76,14 @@ pnpm deploy:local
 The deployment script refuses networks other than Hardhat and localhost by
 default. A remote deployment requires an explicit `ALLOW_REMOTE_DEPLOY=true`
 and a signer configured by the selected Hardhat network.
+It also refuses to overwrite an existing `deployments/<network>.json` before
+accessing a signer. Do not run `deploy:local` against the integrated persistent
+product: its bootstrap already deploys and reuses the registry. For an intentional
+new standalone experiment, preserve the old chain state and deployment file,
+then move that metadata file out of the output location before deploying again.
+Run standalone deployments serially. Exclusive metadata writing prevents a
+concurrent invocation from overwriting the winning deployment file, but cannot
+undo an extra deployment transaction already submitted by another invocation.
 
 To publish certificate metadata to a local Kubo IPFS node, set `IPFS_API_URL`
 if needed and run:

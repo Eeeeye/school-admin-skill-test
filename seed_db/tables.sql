@@ -547,13 +547,13 @@ BEGIN
         SELECT COUNT(*) INTO _parent_count_current_year
         FROM users t1
         JOIN user_profiles t2 ON t1.id = t2.user_id
-        WHERE t1.role_id = 4
+        WHERE EXISTS (SELECT 1 FROM roles parent_role WHERE parent_role.id=t1.role_id AND LOWER(parent_role.name)='parent')
         AND EXTRACT(YEAR FROM t2.join_dt) = EXTRACT(YEAR FROM CURRENT_DATE);
 
         SELECT COUNT(*) INTO _parent_count_previous_year
         FROM users t1
         JOIN user_profiles t2 ON t1.id = t2.user_id
-        WHERE t1.role_id = 4
+        WHERE EXISTS (SELECT 1 FROM roles parent_role WHERE parent_role.id=t1.role_id AND LOWER(parent_role.name)='parent')
         AND EXTRACT(YEAR FROM t2.join_dt) = EXTRACT(YEAR FROM CURRENT_DATE) - 1;
 
         _parent_value_comparison := _parent_count_current_year - _parent_count_previous_year;
@@ -583,6 +583,7 @@ BEGIN
     FROM (
         SELECT *
         FROM get_notices(_user_id) AS t
+        WHERE t."statusId" <> 6
         LIMIT 5
     ) AS t;
 
@@ -594,14 +595,14 @@ BEGIN
             t2.name,
             COALESCE(SUM(
                 CASE WHEN t3.status = 2 THEN
-                    EXTRACT(DAY FROM age(t3.to_dt + INTERVAL '1 day', t3.from_dt))
+                    (t3.to_dt - t3.from_dt) + 1
                 ELSE 0
                 END
             ), 0) AS "totalDaysUsed"
         FROM user_leave_policy t1
         JOIN leave_policies t2 ON t1.leave_policy_id = t2.id
-        LEFT JOIN user_leaves t3 ON t1.leave_policy_id = t3.leave_policy_id
-        WHERE t1.user_id = _user_id
+        LEFT JOIN user_leaves t3 ON t1.leave_policy_id = t3.leave_policy_id AND t1.user_id = t3.user_id
+        WHERE t1.user_id = _user_id AND t2.is_active = true
         GROUP BY t2.id, t2.name
     )
     SELECT
@@ -625,7 +626,7 @@ BEGIN
             t1.approved_dt AS "approved",
             t4.name AS approver,
             t5.name AS user,
-            EXTRACT(DAY FROM age(t1.to_dt + INTERVAL '1 day', t1.from_dt)) AS days
+            (t1.to_dt - t1.from_dt) + 1 AS days
         FROM user_leaves t1
         JOIN leave_policies t2 ON t1.leave_policy_id = t2.id
         JOIN leave_status t3 ON t1.status = t3.id

@@ -35,17 +35,23 @@ const checkWriteResult = (result) => {
     throw new ApiError(500, "Unable to save staff");
 };
 
-const processReviewStaffStatus = async ({ status, userId, reviewerId }) => {
+const processReviewStaffStatus = async ({ status, userId, reviewerId }, actor) => {
     if (typeof status !== "boolean") throw new ApiError(400, "Staff status must be a boolean");
     const id = staffId(userId);
     if (!status && id === Number(reviewerId)) throw new ApiError(400, "You cannot disable your own account");
-    await processGetStaff(id);
-    const affectedRow = await reviewStaffStatus({ status, userId: id, reviewerId });
+    const current = await processGetStaff(id);
+    if (Number(current.role) === 1 && Number(actor?.roleId) !== 1) {
+        throw new ApiError(403, "Only administrators may change administrator accounts");
+    }
+    const affectedRow = await reviewStaffStatus({ status, userId: id, reviewerId, actorRoleId: actor?.roleId });
     if (affectedRow <= 0) throw new ApiError(400, "Verify the staff email before enabling system access");
     return { message: "Staff status updated successfully" };
 }
 
-const processAddStaff = async (payload) => {
+const processAddStaff = async (payload, actor) => {
+    // Creating a staff account necessarily grants a role. A delegated profile
+    // editor must not mint an account with arbitrary additional permissions.
+    if (Number(actor?.roleId) !== 1) throw new ApiError(403, "Only administrators may create staff accounts and assign roles");
     const normalized = validateStaffPayload(payload, { creating: true });
     await validateStaffReferences(normalized);
     const result = await addOrUpdateStaff(normalized);
@@ -58,10 +64,10 @@ const processAddStaff = async (payload) => {
     }
 }
 
-const processUpdateStaff = async (payload) => {
+const processUpdateStaff = async (payload, actor) => {
     const normalized = validateStaffPayload(payload);
     const id = staffId(payload.userId);
-    const result = await updateStaffById(id, normalized);
+    const result = await updateStaffById(id, normalized, actor);
     checkWriteResult(result);
 
     return { message: result.message };

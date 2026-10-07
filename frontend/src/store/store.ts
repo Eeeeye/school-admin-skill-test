@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
-import storage from 'redux-persist/lib/storage';
+import storage from 'redux-persist/lib/storage/session';
+import { prepareAuthSessionStorage } from '@/api/auth-session';
 import {
   persistReducer,
   persistStore,
@@ -34,6 +35,7 @@ const store = configureStore({
       .concat(purgeMiddleware)
 });
 
+prepareAuthSessionStorage();
 export const persistor = persistStore(store);
 export { store };
 export type RootState = ReturnType<typeof store.getState>;

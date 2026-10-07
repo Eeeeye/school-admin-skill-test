@@ -18,20 +18,20 @@ const handleReviewStaffStatus = asyncHandler(async (req, res) => {
     const payload = req.body;
     const { id: userId } = req.params;
     const { id: reviewerId } = req.user;
-    const message = await processReviewStaffStatus({ ...payload, userId, reviewerId });
+    const message = await processReviewStaffStatus({ ...payload, userId, reviewerId }, req.user);
     res.json(message);
 });
 
 const handleAddStaff = asyncHandler(async (req, res) => {
     const payload = req.body;
-    const message = await processAddStaff(payload);
+    const message = await processAddStaff(payload, req.user);
     res.json(message);
 });
 
 const handleUpdateStaff = asyncHandler(async (req, res) => {
     const { id: userId } = req.params;
     const payload = req.body;
-    const message = await processUpdateStaff({ ...payload, userId });
+    const message = await processUpdateStaff({ ...payload, userId }, req.user);
     res.json(message);
 });
 

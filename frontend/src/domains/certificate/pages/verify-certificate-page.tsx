@@ -168,9 +168,11 @@ export const VerifyCertificatePage = () => {
               )}
               {data.exists && (
                 <>
-                  <Typography variant='h5'>{data.title || 'Student certificate'}</Typography>
+                  <Typography variant='h5' sx={{ overflowWrap: 'anywhere' }}>
+                    {data.title || 'Student certificate'}
+                  </Typography>
                   {data.description && (
-                    <Typography sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                    <Typography sx={{ mt: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                       {data.description}
                     </Typography>
                   )}

@@ -5,10 +5,10 @@ const sectionApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getSections: builder.query<SectionData, void>({
       query: () => `/sections`,
-      providesTags: (result) =>
-        result?.sections?.map(({ id }) => {
-          return { type: Tag.SECTIONS, id };
-        }) || [{ type: Tag.SECTIONS }]
+      providesTags: (result) => [
+        { type: Tag.SECTIONS },
+        ...(result?.sections?.map(({ id }) => ({ type: Tag.SECTIONS, id })) ?? [])
+      ]
     }),
     addNewSection: builder.mutation<{ message: string }, SectionForm>({
       query: ({ name }) => ({
@@ -28,14 +28,26 @@ const sectionApi = api.injectEndpoints({
         method: 'PUT',
         body: { name }
       }),
-      invalidatesTags: (result, _error, { id }) => (result ? [{ type: Tag.SECTIONS, id }] : [])
+      invalidatesTags: (result, _error, { id }) =>
+        result
+          ? [
+              { type: Tag.SECTIONS, id },
+              Tag.CLASSES,
+              Tag.STUDENTS,
+              Tag.CLASS_TEACHERS,
+              Tag.NOTICE_RECIPIENT_LIST
+            ]
+          : []
     }),
     deleteSection: builder.mutation<{ message: string }, number>({
       query: (id) => ({
         url: `/sections/${id}`,
         method: 'DELETE'
       }),
-      invalidatesTags: (result) => (result ? [Tag.SECTIONS] : [])
+      invalidatesTags: (result) =>
+        result
+          ? [Tag.SECTIONS, Tag.CLASSES, Tag.STUDENTS, Tag.CLASS_TEACHERS, Tag.NOTICE_RECIPIENT_LIST]
+          : []
     })
   })
 });

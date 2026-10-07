@@ -7,6 +7,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  LinearProgress,
   Paper,
   Stack,
   Tab,
@@ -16,6 +17,7 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { getUserRole } from '@/domains/auth/slice';
+import { useGetStudentDetail } from '../hooks';
 import { useDeleteStudentMutation } from '../api/student-api';
 import { getErrorMsg } from '@/utils/helpers/get-error-message';
 import { toast } from 'react-toastify';
@@ -28,6 +30,7 @@ const tabs = ['Profile'];
 export const ViewStudent = () => {
   const { id } = useParams();
   const role = useSelector(getUserRole);
+  const detail = useGetStudentDetail(id);
   const navigate = useNavigate();
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [deleteStudent, deletion] = useDeleteStudentMutation();
@@ -49,6 +52,11 @@ export const ViewStudent = () => {
   const handleTabChange = (_event: React.SyntheticEvent, index: number) => {
     setTab(index);
   };
+
+  if (detail.isFetching && !detail.currentData)
+    return <LinearProgress aria-label='Loading student' />;
+  if (detail.error) return <Alert severity='error'>{getErrorMsg(detail.error).message}</Alert>;
+  if (!detail.currentData) return <Alert severity='info'>Student record not found.</Alert>;
 
   return (
     <>

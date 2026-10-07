@@ -70,6 +70,7 @@ export const AppBarLayout: React.FC<AppBarLayoutProps> = ({
     >
       <Toolbar>
         <IconButton
+          aria-label='Open navigation menu'
           edge='start'
           onClick={handleDrawerToggle}
           sx={{ mr: 2, display: { sm: 'none' } }}

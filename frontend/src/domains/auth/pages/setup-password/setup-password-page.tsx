@@ -56,7 +56,9 @@ export const SetupPasswordPage = () => {
     >
       <Box
         sx={{
-          width: { xs: '400px', md: '500px' },
+          width: { xs: '300px', md: '500px' },
+          maxWidth: 'calc(100vw - 32px)',
+          boxSizing: 'border-box',
           border: '1px solid #f3f6f999',
           padding: '20px'
         }}

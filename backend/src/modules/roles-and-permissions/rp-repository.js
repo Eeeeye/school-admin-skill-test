@@ -1,4 +1,5 @@
-const { processDBRequest } = require("../../utils");
+const { processDBRequest, ApiError } = require("../../utils");
+const { db } = require("../../config");
 
 const doesRoleNameExist = async (name) => {
     const query = "SELECT 1 FROM roles WHERE name ILIKE $1 LIMIT 1";
@@ -52,10 +53,20 @@ const updateRoleById = async (id, name) => {
 }
 
 const enableOrDisableRoleStatusByRoleId = async (id, status) => {
-    const query = "UPDATE roles SET is_active = $1 WHERE id = $2 AND is_editable = true";
-    const queryParams = [status, id];
-    const { rowCount } = await processDBRequest({ query, queryParams });
-    return rowCount;
+    const client = await db.connect();
+    try {
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(7183001)");
+        await client.query("SELECT id FROM users WHERE role_id=$1 ORDER BY id FOR UPDATE", [id]);
+        const { rowCount } = await client.query("UPDATE roles SET is_active=$1 WHERE id=$2 AND is_editable=true", [status, id]);
+        if (rowCount && !status) await client.query(`DELETE FROM user_refresh_tokens rt USING users u
+            WHERE rt.user_id=u.id AND u.role_id=$1`, [id]);
+        await client.query("COMMIT");
+        return rowCount;
+    } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+    } finally { client.release(); }
 }
 
 const getAccessControlByIds = async (ids, client) => {
@@ -116,14 +127,24 @@ const getUsersByRoleId = async (id) => {
 }
 
 const switchUserRole = async (userId, newRoleId) => {
-    const query = `
-        UPDATE users
-        SET role_id = $1
-        WHERE id = $2 AND EXISTS (SELECT 1 FROM roles WHERE id = $1)
-    `;
-    const queryParams = [newRoleId, userId];
-    const { rowCount } = await processDBRequest({ query, queryParams });
-    return rowCount;
+    const client = await db.connect();
+    try {
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(7183001)");
+        const { rows } = await client.query("SELECT role_id FROM users WHERE id=$1 FOR UPDATE", [userId]);
+        if (!rows[0]) throw new ApiError(404, "User not found");
+        if (rows[0].role_id === 3 || newRoleId === 3) throw new ApiError(400, "Student roles must be managed through student records");
+        const assigned = await client.query("SELECT 1 FROM class_teachers WHERE teacher_id=$1", [userId]);
+        if (newRoleId !== 2 && assigned.rows.length) throw new ApiError(409, "Reassign this teacher's classes before changing their role");
+        const result = await client.query(`UPDATE users SET role_id=$1, updated_dt=NOW()
+            WHERE id=$2 AND EXISTS (SELECT 1 FROM roles WHERE id=$1 AND is_active)`, [newRoleId, userId]);
+        if (rows[0].role_id !== newRoleId) await client.query("DELETE FROM user_refresh_tokens WHERE user_id=$1", [userId]);
+        await client.query("COMMIT");
+        return result.rowCount;
+    } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+    } finally { client.release(); }
 }
 
 const checkPermission = async (roleId, apiPath, apiMethod) => {

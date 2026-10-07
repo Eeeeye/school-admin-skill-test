@@ -53,7 +53,7 @@ const handleGetUsersByRoleId = asyncHandler(async (req, res) => {
 });
 const handleSwitchRole = asyncHandler(async (req, res) => {
     const { userId, roleId } = req.body;
-    const message = await processSwitchRole(userId, roleId);
+    const message = await processSwitchRole(userId, roleId, req.user);
     res.json(message);
 });
 

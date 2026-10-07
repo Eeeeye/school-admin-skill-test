@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {
+  Alert,
   Box,
   FormControl,
   FormControlLabel,
@@ -22,10 +23,10 @@ import { useNavigate } from 'react-router-dom';
 import { LoadingButton } from '@mui/lab';
 
 import { getErrorMsg } from '@/utils/helpers/get-error-message';
-import { ClassTeacherProps, Teacher } from '@/domains/class/types';
+import { ClassTeacherProps } from '@/domains/class/types';
 import {
   useAddClassTeacherMutation,
-  useLazyGetTeachersQuery,
+  useGetTeachersQuery,
   useUpdateClassTeacherMutation
 } from '../api/class-teacher-api';
 import { useGetSectionsQuery } from '@/domains/section/api';
@@ -41,9 +42,9 @@ export const ManageClassTeacher: React.FC<ManageClassTeacherProps> = ({
   id,
   methods
 }) => {
-  const { data, isLoading } = useGetSectionsQuery();
-  const [getTeachers] = useLazyGetTeachersQuery();
-  const [teachers, setTeachers] = React.useState<Teacher[]>([]);
+  const { data, isLoading, error: sectionsError } = useGetSectionsQuery();
+  const { data: teacherData, error: teachersError } = useGetTeachersQuery();
+  const teachers = teacherData?.teachers ?? [];
   const [addClassTeacher, { isLoading: addingClassTeacher }] = useAddClassTeacherMutation();
   const [updateClassTeacher, { isLoading: updatingClassTeacher }] = useUpdateClassTeacherMutation();
   const navigate = useNavigate();
@@ -55,21 +56,6 @@ export const ManageClassTeacher: React.FC<ManageClassTeacherProps> = ({
     formState: { errors },
     reset
   } = methods;
-
-  React.useEffect(() => {
-    const fetch = async () => {
-      try {
-        const result = await getTeachers().unwrap();
-        if (result.teachers) {
-          setTeachers(result.teachers);
-        }
-      } catch (error) {
-        console.log(error);
-      }
-    };
-
-    fetch();
-  }, [getTeachers]);
 
   const onSubmit = async (data: ClassTeacherProps) => {
     try {
@@ -91,6 +77,9 @@ export const ManageClassTeacher: React.FC<ManageClassTeacherProps> = ({
         <Typography variant='subtitle1' sx={{ mb: 3 }}>
           {operation} Class Teacher
         </Typography>
+        {(sectionsError || teachersError) && (
+          <Alert severity='error'>{getErrorMsg(sectionsError || teachersError).message}</Alert>
+        )}
         <form onSubmit={handleSubmit(onSubmit)}>
           <TextField
             {...register('class')}

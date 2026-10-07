@@ -50,6 +50,8 @@ export const LoginPage = () => {
       <Box
         sx={{
           width: { xs: '300px', md: '400px' },
+          maxWidth: 'calc(100vw - 32px)',
+          boxSizing: 'border-box',
           border: '1px solid #f3f6f999',
           padding: '20px'
         }}

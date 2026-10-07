@@ -3,7 +3,9 @@ const { processDBRequest } = require("../../utils");
 const { ApiError } = require("../../utils/api-error");
 
 const findUserByUsername = async (username, client) => {
-    const query = "SELECT * FROM users WHERE email = $1";
+    // Serialize logins with password changes and with each other, so a stale
+    // password cannot create a session after a password change commits.
+    const query = "SELECT * FROM users WHERE email = $1 FOR UPDATE";
     const { rows } = await client.query(query, [username]);
     return rows[0];
 };

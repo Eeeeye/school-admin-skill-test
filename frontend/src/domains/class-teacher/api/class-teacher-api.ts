@@ -10,17 +10,18 @@ export const classTeacherApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getClassTeachers: builder.query<ClassTeacherData, void>({
       query: () => `/class-teachers`,
-      providesTags: (result) =>
-        result?.classTeachers?.map(({ id }) => {
-          return { type: Tag.CLASS_TEACHERS, id };
-        }) || [{ type: Tag.CLASS_TEACHERS }]
+      providesTags: (result) => [
+        { type: Tag.CLASS_TEACHERS },
+        ...(result?.classTeachers?.map(({ id }) => ({ type: Tag.CLASS_TEACHERS, id })) ?? [])
+      ]
     }),
     getClassTeacherDetail: builder.query<ClassTeacherPropsWithId, string | undefined>({
       query: (id) => `/class-teachers/${id}`,
       providesTags: (result) => (result ? [{ type: Tag.CLASS_TEACHERS, id: result.id }] : [])
     }),
     getTeachers: builder.query<TeachersData, void>({
-      query: () => `/teachers`
+      query: () => `/teachers`,
+      providesTags: [Tag.STAFFS]
     }),
     addClassTeacher: builder.mutation<{ message: string }, ClassTeacherProps>({
       query: (payload) => ({
@@ -46,6 +47,7 @@ export const {
   useLazyGetClassTeachersQuery,
   useGetClassTeacherDetailQuery,
   useLazyGetTeachersQuery,
+  useGetTeachersQuery,
   useAddClassTeacherMutation,
   useUpdateClassTeacherMutation
 } = classTeacherApi;

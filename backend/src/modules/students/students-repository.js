@@ -1,5 +1,6 @@
 const { db } = require("../../config");
 const { processDBRequest } = require("../../utils");
+const { resolveSections } = require("../../utils/academic-integrity");
 
 const getRoleId = async (roleName) => {
     const query = "SELECT id FROM roles WHERE name ILIKE $1";
@@ -51,6 +52,7 @@ const addOrUpdateStudent = async (payload) => {
     const client = await db.connect();
     try {
         await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(7183001)");
         if (!await validStudentPlacement(payload, client)) {
             await client.query("ROLLBACK");
             return { status: false, message: "Invalid class or section" };
@@ -71,11 +73,8 @@ const validStudentPlacement = async (payload, client) => {
     const { rows: classes } = await client.query("SELECT sections FROM classes WHERE name = $1 FOR SHARE", [payload.class]);
     if (!classes[0]) return false;
     if (!payload.section) return true;
-    const { rows: sections } = await client.query("SELECT id, name FROM sections WHERE name = $1 FOR SHARE", [payload.section]);
-    if (!sections[0]) return false;
-    // Original data uses names; newer class forms can persist section IDs.
-    const allowed = String(classes[0].sections || "").split(",").map((value) => value.trim());
-    return allowed.includes(sections[0].name) || allowed.includes(String(sections[0].id));
+    const allowed = await resolveSections(client, classes[0].sections || "");
+    return allowed.includes(payload.section);
 };
 
 const findStudentDetail = async (id, client = db) => {
@@ -116,6 +115,7 @@ const updateStudentById = async (id, payload) => {
     const client = await db.connect();
     try {
         await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(7183001)");
         const { rowCount } = await client.query(
             "SELECT id FROM users WHERE id = $1 AND role_id = 3 FOR UPDATE", [id]
         );
@@ -136,6 +136,9 @@ const updateStudentById = async (id, payload) => {
             return { status: false, message: "Invalid class or section" };
         }
         const { rows } = await client.query("SELECT * FROM student_add_update($1)", [merged]);
+        if (rows[0].status && (current.email !== merged.email || merged.systemAccess === false)) {
+            await client.query("DELETE FROM user_refresh_tokens WHERE user_id = $1", [id]);
+        }
         await client.query(rows[0].status ? "COMMIT" : "ROLLBACK");
         return rows[0];
     } catch (error) {
@@ -157,8 +160,21 @@ const findStudentToSetStatus = async ({ userId, reviewerId, status }) => {
         WHERE id = $4 AND role_id = 3
     `;
     const queryParams = [status, now, reviewerId, userId];
-    const { rowCount } = await processDBRequest({ query, queryParams });
-    return rowCount
+    const client = await db.connect();
+    try {
+        await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(7183001)");
+        await client.query("SELECT id FROM users WHERE id=$1 AND role_id=3 FOR UPDATE", [userId]);
+        const { rowCount } = await client.query(query, queryParams);
+        // A separate statement gets a fresh snapshot after any in-flight login
+        // releases the row lock, including the session it has just committed.
+        if (rowCount && !status) await client.query("DELETE FROM user_refresh_tokens WHERE user_id=$1", [userId]);
+        await client.query("COMMIT");
+        return rowCount;
+    } catch (error) {
+        await client.query("ROLLBACK").catch(() => {});
+        throw error;
+    } finally { client.release(); }
 }
 
 const deleteStudentById = async (id) => {
@@ -166,6 +182,7 @@ const deleteStudentById = async (id) => {
 
     try {
         await client.query("BEGIN");
+        await client.query("SELECT pg_advisory_xact_lock(7183001)");
 
         const { rowCount } = await client.query(
             "SELECT 1 FROM users WHERE id = $1 AND role_id = 3 FOR UPDATE",

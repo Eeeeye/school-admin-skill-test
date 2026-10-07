@@ -16,10 +16,10 @@ export const staffApi = api.injectEndpoints({
         const queryString = getQueryString(payload);
         return `/staffs${queryString}`;
       },
-      providesTags: (result) =>
-        result?.staffs?.map(({ id }) => {
-          return { type: Tag.STAFFS, id };
-        }) || [{ type: Tag.STAFFS }]
+      providesTags: (result) => [
+        { type: Tag.STAFFS },
+        ...(result?.staffs?.map(({ id }) => ({ type: Tag.STAFFS, id })) ?? [])
+      ]
     }),
     getStaffDetail: builder.query<StaffFormPropsWithId, string | undefined>({
       query: (id) => (id ? `/staffs/${id}` : `/account/me`),
@@ -63,7 +63,7 @@ export const staffApi = api.injectEndpoints({
           joinDate: getFormattedDate(payload.joinDate, API_DATE_FORMAT)
         }
       }),
-      invalidatesTags: [Tag.STAFFS]
+      invalidatesTags: [Tag.STAFFS, Tag.DASHBOARD, Tag.LEAVE_ELIGIBLE_USERS]
     }),
     updateStaff: builder.mutation<{ message: string }, StaffFormPropsWithId>({
       query: ({ id, ...payload }) => ({
@@ -75,7 +75,7 @@ export const staffApi = api.injectEndpoints({
           joinDate: getFormattedDate(payload.joinDate, API_DATE_FORMAT)
         }
       }),
-      invalidatesTags: (_result, _error, { id }) => [{ type: Tag.STAFFS, id }]
+      invalidatesTags: (_result, _error, { id }) => [{ type: Tag.STAFFS, id }, Tag.DASHBOARD]
     })
   })
 });

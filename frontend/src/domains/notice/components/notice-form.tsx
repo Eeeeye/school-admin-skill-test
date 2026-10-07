@@ -17,11 +17,13 @@ import {
 } from '@mui/material';
 import { Controller, UseFormReturn } from 'react-hook-form';
 import { LoadingButton } from '@mui/lab';
+import { useSelector } from 'react-redux';
+import { getUserRole } from '@/domains/auth/slice';
 
-import { NoticeFormProps, RecipientListData } from '../types';
+import { NoticeFormProps } from '../types';
 import { getErrorMsg } from '@/utils/helpers/get-error-message';
 import { noticeStatusList } from '@/constants';
-import { useLazyGetNoticeRecipientListQuery } from '../api';
+import { useGetNoticeRecipientListQuery } from '../api';
 
 type Props = {
   isSaving: boolean;
@@ -40,27 +42,25 @@ export const NoticeForm: React.FC<Props> = ({
   handleRecipientChange,
   selectedRoleId
 }) => {
-  const [getRecipients, { error: recipientsError }] = useLazyGetNoticeRecipientListQuery();
+  const role = useSelector(getUserRole);
+  const statusOptions =
+    role === 'admin'
+      ? [
+          ...noticeStatusList,
+          { id: 3, name: 'Deletion requested' },
+          { id: 4, name: 'Rejected' },
+          { id: 5, name: 'Published' }
+        ]
+      : [...noticeStatusList, { id: 3, name: 'Deletion requested' }];
+  const { data: recipientData, error: recipientsError } = useGetNoticeRecipientListQuery();
   const {
     register,
     formState: { errors },
     control,
     watch
   } = methods;
-  const [recipients, setRecipients] = React.useState<RecipientListData>([]);
-
+  const recipients = recipientData?.noticeRecipients ?? [];
   const recipientWatch = watch('recipientType');
-  React.useEffect(() => {
-    const fetch = async () => {
-      try {
-        const result = await getRecipients().unwrap();
-        setRecipients(result.noticeRecipients);
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    fetch();
-  }, [getRecipients]);
 
   const getDependentFields = () => {
     const role = recipients.find((r) => r.roleId === selectedRoleId);
@@ -123,7 +123,7 @@ export const NoticeForm: React.FC<Props> = ({
                 <MenuItem value='' disabled>
                   <em>None</em>
                 </MenuItem>
-                {noticeStatusList.map(({ name, id }) => (
+                {statusOptions.map(({ name, id }) => (
                   <MenuItem key={id} value={id}>
                     {name}
                   </MenuItem>

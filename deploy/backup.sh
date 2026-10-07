@@ -14,7 +14,15 @@ command -v flock >/dev/null
 COMPOSE=(docker compose --project-name "$PROJECT_NAME" --env-file "$ENV_FILE" -f "$ROOT_DIR/docker-compose.server.yml")
 "${COMPOSE[@]}" config --quiet
 mkdir -p -- "$DESTINATION"
-exec 9>"$DESTINATION/.${PROJECT_NAME}.backup.lock"
+# All destinations for this deployment share one lock. Otherwise overlapping
+# runs could restart services while another run is still capturing state.
+LOCK_DIRECTORY="$ROOT_DIR/.server-deploy"
+[[ ! -L "$LOCK_DIRECTORY" ]] || { echo "Backup lock directory must not be a symbolic link" >&2; exit 1; }
+mkdir -p -- "$LOCK_DIRECTORY"
+chmod 700 "$LOCK_DIRECTORY"
+LOCK_FILE="$LOCK_DIRECTORY/${PROJECT_NAME}.backup.lock"
+[[ ! -L "$LOCK_FILE" ]] || { echo "Backup lock file must not be a symbolic link" >&2; exit 1; }
+exec 9>"$LOCK_FILE"
 flock -n 9 || { echo "Another backup is already running for $PROJECT_NAME" >&2; exit 1; }
 for volume in blockchain-data blockchain-deployments ipfs-data caddy-data caddy-config; do
   docker volume inspect "${PROJECT_NAME}_${volume}" >/dev/null
@@ -39,12 +47,33 @@ finish() {
       status=1
     fi
   fi
+  if [[ "$status" == 0 ]]; then
+    if unlink "$BACKUP_DIR/INCOMPLETE"; then
+      echo "Backup complete: $BACKUP_DIR (contains private keys; keep access restricted)"
+    else
+      status=1
+    fi
+  fi
   if [[ "$status" != 0 ]]; then echo "Backup did not complete successfully; inspect $BACKUP_DIR" >&2; fi
   exit "$status"
 }
 trap finish EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
+
+# Record the images attached to the containers, not mutable image tags. A new
+# build may already have moved :latest while the old containers still run.
+{
+  echo "created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "project=$PROJECT_NAME"
+  for service in postgres backend frontend blockchain ipfs; do
+    container=$("${COMPOSE[@]}" ps -aq "$service")
+    [[ -n "$container" && "$container" != *$'\n'* ]] || { echo "Expected one existing container for $service" >&2; exit 1; }
+    image=$(docker container inspect --format '{{.Image}}' "$container")
+    [[ "$image" =~ ^sha256:[a-f0-9]{64}$ ]] || { echo "Cannot identify the deployed image for $service" >&2; exit 1; }
+    echo "service=$service container=$container image=$image"
+  done
+} > "$BACKUP_DIR/manifest.txt"
 
 # Quiesce all writers before capturing cross-service state. PostgreSQL remains
 # up only for pg_dump; no public entry or backend worker can mutate the records.
@@ -61,13 +90,4 @@ done
 install -m 600 "$ENV_FILE" "$BACKUP_DIR/server.env"
 cp "$ROOT_DIR/docker-compose.server.yml" "$BACKUP_DIR/docker-compose.server.yml"
 cp "$ROOT_DIR/deploy/Caddyfile" "$BACKUP_DIR/Caddyfile"
-{
-  echo "created_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "project=$PROJECT_NAME"
-  for image in school-demo-backend:latest school-demo-frontend:latest school-demo-blockchain:latest postgres:16-alpine ipfs/kubo:v0.32.1; do
-    docker image inspect --format '{{.RepoTags}} {{.Id}}' "$image"
-  done
-} > "$BACKUP_DIR/manifest.txt"
 (cd "$BACKUP_DIR" && sha256sum postgres.dump ./*.tar.gz server.env docker-compose.server.yml Caddyfile manifest.txt > SHA256SUMS)
-unlink "$BACKUP_DIR/INCOMPLETE"
-echo "Backup complete: $BACKUP_DIR (contains private keys; keep access restricted)"

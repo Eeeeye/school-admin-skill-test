@@ -16,31 +16,31 @@ export const rolesAndPermissionsApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getPermissions: builder.query<PermissionData, void>({
       query: () => `/access-controls`,
-      providesTags: (result) =>
-        result?.permissions?.map(({ id }) => {
-          return { type: Tag.PERMISSIONS, id };
-        }) || [{ type: Tag.PERMISSIONS }]
+      providesTags: (result) => [
+        { type: Tag.PERMISSIONS },
+        ...(result?.permissions?.map(({ id }) => ({ type: Tag.PERMISSIONS, id })) ?? [])
+      ]
     }),
     getRoles: builder.query<RolesData, void>({
       query: () => `/roles`,
-      providesTags: (result) =>
-        result?.roles?.map(({ id }) => {
-          return { type: Tag.ROLES, id };
-        }) || [{ type: Tag.ROLES }]
+      providesTags: (result) => [
+        { type: Tag.ROLES },
+        ...(result?.roles?.map(({ id }) => ({ type: Tag.ROLES, id })) ?? [])
+      ]
     }),
     getRoleUsers: builder.query<RoleUsersData, number>({
       query: (id) => `/roles/${id}/users`,
-      providesTags: (result) =>
-        result?.users.map(({ id }) => {
-          return { type: Tag.ROLE_USERS, id };
-        }) || [{ type: Tag.ROLE_USERS }]
+      providesTags: (result) => [
+        { type: Tag.ROLE_USERS },
+        ...(result?.users?.map(({ id }) => ({ type: Tag.ROLE_USERS, id })) ?? [])
+      ]
     }),
     getRolePermissions: builder.query<RolePermissionsData, number>({
       query: (id) => `/roles/${id}/permissions`,
-      providesTags: (result) =>
-        result?.permissions.map(({ id }) => {
-          return { type: Tag.ROLE_PERMISSIONS, id };
-        }) || [{ type: Tag.ROLE_PERMISSIONS }]
+      providesTags: (result) => [
+        { type: Tag.ROLE_PERMISSIONS },
+        ...(result?.permissions?.map(({ id }) => ({ type: Tag.ROLE_PERMISSIONS, id })) ?? [])
+      ]
     }),
     addNewRole: builder.mutation<{ message: string }, Omit<AddEditRoleProps, 'id'>>({
       query: (payload) => ({
@@ -72,8 +72,7 @@ export const rolesAndPermissionsApi = api.injectEndpoints({
         method: 'POST',
         body: { permissions }
       }),
-      invalidatesTags: (result, _error, { id }) =>
-        result ? [{ type: Tag.ROLE_PERMISSIONS, id }] : []
+      invalidatesTags: (result) => (result ? [Tag.ROLE_PERMISSIONS, Tag.MY_PERMISSIONS] : [])
     }),
     switchUserRole: builder.mutation<{ message: string }, UserRole>({
       query: ({ id, roleId }) => ({

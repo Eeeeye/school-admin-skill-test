@@ -17,8 +17,16 @@ export const RecipientDetailSchema = z.object({
 
 export const NoticeFormSchema = z
   .object({
-    title: z.string().min(1, 'Title is required'),
-    description: z.string().min(1, 'Description is required'),
+    title: z
+      .string()
+      .trim()
+      .min(1, 'Title is required')
+      .max(100, 'Title must be at most 100 characters'),
+    description: z
+      .string()
+      .trim()
+      .min(1, 'Description is required')
+      .max(400, 'Description must be at most 400 characters'),
     status: z.number().min(1, 'Status is required'),
     recipientType: z.enum(['EV', 'SP']),
     recipientRole: z.number().optional(),

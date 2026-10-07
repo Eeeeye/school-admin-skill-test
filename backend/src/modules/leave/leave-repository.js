@@ -205,14 +205,15 @@ const getPendingLeaveRequests = async (user) => {
     return rows;
 }
 
-const approveOrCancelPendingLeaveRequest = async (userId, requestId, status) => {
+const approveOrCancelPendingLeaveRequest = async (userId, requestId, status, reviewerRoleId) => {
     const now = new Date();
     const query = `
         UPDATE user_leaves
         SET status = $1, approved_dt = $2, approver_id = $3
         WHERE id = $4 AND status = 1
+          AND ($5=1 OR EXISTS (SELECT 1 FROM users WHERE users.id=user_leaves.user_id AND reporter_id=$3))
     `;
-    const queryParams = [status, now, userId, requestId];
+    const queryParams = [status, now, userId, requestId, Number(reviewerRoleId) || 0];
     const { rowCount } = await processDBRequest({ query, queryParams });
     return rowCount;
 }

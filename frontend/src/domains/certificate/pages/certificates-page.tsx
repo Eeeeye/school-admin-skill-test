@@ -187,8 +187,10 @@ export const CertificatesPage = () => {
         <Card key={certificate.id} variant='outlined'>
           <CardContent>
             <Stack direction='row' spacing={2} justifyContent='space-between' alignItems='start'>
-              <Box>
-                <Typography variant='h6'>{certificate.title}</Typography>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography variant='h6' sx={{ overflowWrap: 'anywhere' }}>
+                  {certificate.title}
+                </Typography>
                 <Typography color='text.secondary'>
                   {admin && certificate.studentId ? (
                     <MuiLink component={Link} to={`/app/students/${certificate.studentId}`}>
@@ -206,7 +208,7 @@ export const CertificatesPage = () => {
               />
             </Stack>
             {certificate.description && (
-              <Typography sx={{ my: 1, whiteSpace: 'pre-wrap' }}>
+              <Typography sx={{ my: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                 {certificate.description}
               </Typography>
             )}

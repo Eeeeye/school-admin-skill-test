@@ -105,7 +105,10 @@ Run `bash deploy/backup.sh /var/backups/school-demo` before upgrades and regular
 while retaining data. It temporarily stops the site, backend, chain and IPFS,
 keeps PostgreSQL up to take a custom-format dump, then archives the stopped
 volumes and restarts only services that were previously running. Run one backup
-at a time. `ENV_FILE` and `COMPOSE_PROJECT_NAME` may override the defaults.
+at a time, always from the same deployed checkout. A private project lock under
+`.server-deploy/` is shared across backup destinations, so overlapping runs cannot
+restart each other's services. `ENV_FILE` and `COMPOSE_PROJECT_NAME` may override
+the defaults.
 Restoration uses `up -d --wait --no-deps --no-recreate` for those services, which
 waits for health without recreating their containers or starting other services.
 This also works with Compose v2.27, whose `start` command has no `--wait` option.
@@ -114,8 +117,14 @@ Each backup contains the database dump, chain and deployment state, IPFS,
 Caddy data/config, deployment files, checksums and **the protected environment
 including private keys**. Keep it inaccessible to other users, copy an encrypted
 backup off the server, and do not put it into Git or a public bucket. A directory
-with an `INCOMPLETE` marker is not a successful backup. Check `SHA256SUMS` before
-restoring. Old public certificate links depend on the same hostname and data.
+with an `INCOMPLETE` marker is not a successful backup. The marker remains when
+services fail to restart, even if the data was captured; inspect that failure
+before treating the run as complete. Check `SHA256SUMS` before restoring. The
+manifest records the immutable image IDs of the actual containers, even when a
+new build has already replaced a `:latest` tag. Preserve those images (for
+example using `docker image save`) or their reproducible build inputs separately;
+the backup does not archive application images or source code. Old public
+certificate links depend on the same hostname and data.
 
 Restore into fresh, empty volumes with the same saved environment and matching
 images. Keep the previous volumes untouched until verification passes. Restore

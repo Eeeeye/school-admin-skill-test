@@ -15,17 +15,17 @@ export const noticeApi = api.injectEndpoints({
   endpoints: (builder) => ({
     getNotices: builder.query<NoticeData, void>({
       query: () => `/notices`,
-      providesTags: (result) =>
-        result?.notices?.map(({ id }) => {
-          return { type: Tag.NOTICES, id };
-        }) || [{ type: Tag.NOTICES }]
+      providesTags: (result) => [
+        { type: Tag.NOTICES },
+        ...(result?.notices?.map(({ id }) => ({ type: Tag.NOTICES, id })) ?? [])
+      ]
     }),
     getAllPendingNotices: builder.query<NoticeData, void>({
       query: () => `/notices/pending`,
-      providesTags: (result) =>
-        result?.notices?.map(({ id }) => {
-          return { type: Tag.PENDING_NOTICES, id };
-        }) || [{ type: Tag.PENDING_NOTICES }]
+      providesTags: (result) => [
+        { type: Tag.PENDING_NOTICES },
+        ...(result?.notices?.map(({ id }) => ({ type: Tag.PENDING_NOTICES, id })) ?? [])
+      ]
     }),
     getNoticeDetail: builder.query<NoticeDetailProps, string | undefined>({
       query: (id) => `/notices/${id}`,
@@ -33,10 +33,10 @@ export const noticeApi = api.injectEndpoints({
     }),
     getMyNotices: builder.query<NoticeData, void>({
       query: () => `/notices/me`,
-      providesTags: (result) =>
-        result?.notices?.map(({ id }) => {
-          return { type: Tag.NOTICES, id };
-        }) || [{ type: Tag.NOTICES }]
+      providesTags: (result) => [
+        { type: Tag.NOTICES },
+        ...(result?.notices?.map(({ id }) => ({ type: Tag.NOTICES, id })) ?? [])
+      ]
     }),
     addNotice: builder.mutation<{ message: string }, NoticeFormProps>({
       query: (payload) => ({
@@ -44,7 +44,7 @@ export const noticeApi = api.injectEndpoints({
         method: 'POST',
         body: payload
       }),
-      invalidatesTags: [Tag.NOTICES, Tag.PENDING_NOTICES]
+      invalidatesTags: [Tag.NOTICES, Tag.PENDING_NOTICES, Tag.DASHBOARD]
     }),
     updateNotice: builder.mutation<{ message: string }, NoticeFormPropsWithId>({
       query: ({ id, ...payload }) => ({
@@ -53,8 +53,9 @@ export const noticeApi = api.injectEndpoints({
         body: payload
       }),
       invalidatesTags: (_result, _error, { id }) => [
-        { type: Tag.NOTICES, id },
-        { type: Tag.PENDING_NOTICES, id }
+        { type: Tag.NOTICES, id: Number(id) },
+        Tag.PENDING_NOTICES,
+        Tag.DASHBOARD
       ]
     }),
     handleNoticeStatus: builder.mutation<{ message: string }, ReviewNotice>({
@@ -63,21 +64,22 @@ export const noticeApi = api.injectEndpoints({
         method: 'POST',
         body: { status }
       }),
-      invalidatesTags: [Tag.NOTICES, Tag.PENDING_NOTICES]
+      invalidatesTags: [Tag.NOTICES, Tag.PENDING_NOTICES, Tag.DASHBOARD]
     }),
     getNoticeRecipientList: builder.query<RecipientResponse, void>({
       query: () => `/notices/recipients/list`,
-      providesTags: (result) =>
-        result?.noticeRecipients?.map(({ id }) => {
-          return { type: Tag.NOTICE_RECIPIENT_LIST, id };
-        }) || [{ type: Tag.NOTICE_RECIPIENT_LIST }]
+      providesTags: (result) => [
+        { type: Tag.NOTICE_RECIPIENT_LIST },
+        ...(result?.noticeRecipients?.map(({ id }) => ({ type: Tag.NOTICE_RECIPIENT_LIST, id })) ??
+          [])
+      ]
     }),
     getNoticeRecipients: builder.query<RecipientData, void>({
       query: () => `/notices/recipients`,
-      providesTags: (result) =>
-        result?.noticeRecipients?.map(({ id }) => {
-          return { type: Tag.NOTICE_RECIPIENTS, id };
-        }) || [{ type: Tag.NOTICE_RECIPIENTS }]
+      providesTags: (result) => [
+        { type: Tag.NOTICE_RECIPIENTS },
+        ...(result?.noticeRecipients?.map(({ id }) => ({ type: Tag.NOTICE_RECIPIENTS, id })) ?? [])
+      ]
     }),
     getNoticeRecipient: builder.query<NoticeRecipientWithId, number>({
       query: (id) => `/notices/recipients/${id}`,
@@ -89,7 +91,7 @@ export const noticeApi = api.injectEndpoints({
         method: 'POST',
         body: { ...payload }
       }),
-      invalidatesTags: [Tag.NOTICE_RECIPIENTS]
+      invalidatesTags: [Tag.NOTICE_RECIPIENTS, Tag.NOTICE_RECIPIENT_LIST]
     }),
     updateNoticeRecipient: builder.mutation<{ message: string }, NoticeRecipientWithId>({
       query: ({ id, ...rest }) => ({
@@ -98,14 +100,15 @@ export const noticeApi = api.injectEndpoints({
         body: { ...rest }
       }),
       invalidatesTags: (result, _error, { id }) =>
-        result ? [{ type: Tag.NOTICE_RECIPIENTS, id }] : []
+        result ? [{ type: Tag.NOTICE_RECIPIENTS, id }, Tag.NOTICE_RECIPIENT_LIST] : []
     }),
     deleteNoticeRecipient: builder.mutation<{ message: string }, number>({
       query: (id) => ({
         url: `/notices/recipients/${id}`,
         method: 'DELETE'
       }),
-      invalidatesTags: (result, _error, id) => (result ? [{ type: Tag.NOTICE_RECIPIENTS, id }] : [])
+      invalidatesTags: (result, _error, id) =>
+        result ? [{ type: Tag.NOTICE_RECIPIENTS, id }, Tag.NOTICE_RECIPIENT_LIST] : []
     })
   })
 });
@@ -115,6 +118,7 @@ export const {
   useGetNoticeDetailQuery,
   useGetMyNoticesQuery,
   useLazyGetNoticeRecipientListQuery,
+  useGetNoticeRecipientListQuery,
   useAddNoticeMutation,
   useUpdateNoticeMutation,
   useHandleNoticeStatusMutation,

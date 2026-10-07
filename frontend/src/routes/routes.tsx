@@ -1,32 +1,118 @@
+import { lazy } from 'react';
 import 'react-toastify/dist/ReactToastify.css';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 
 import { ProtectedRoute } from './protected-route';
-import { AppRoot } from './app-root';
-import { LoginPage, SetupPasswordPage } from '@/domains/auth/pages';
-import { DashboardPage } from '@/domains/dashboard/pages';
-import { LeaveDefine, MyLeaveRequest, PendingRequest } from '@/domains/leave/pages';
-import { EditClass, ListClasses } from '@/domains/class/pages';
-import { EditClassTeacher, ListClassTeachers } from '@/domains/class-teacher/pages';
-import { AddStudent, EditStudent, ListStudents, ViewStudent } from '@/domains/student/pages';
-import {
-  AddNotice,
-  EditNotice,
-  EditNoticeRecipientPage,
-  ListNoticeRecipients,
-  ListNotices,
-  ManageNotices,
-  ViewNotice
-} from '@/domains/notice/pages';
-import { AddStaff, EditStaff, ListStaffs, ViewStaff } from '@/domains/staff/pages';
-import { AccountPage } from '@/domains/account/pages';
-import { EditSectionPage, ListSectionPage } from '@/domains/section/pages';
-import { EditDepartmentPage, ListDepartmentsPage } from '@/domains/department/pages';
+const AppRoot = lazy(() => import('./app-root').then((module) => ({ default: module.AppRoot })));
+const LoginPage = lazy(() =>
+  import('@/domains/auth/pages').then((module) => ({ default: module.LoginPage }))
+);
+const SetupPasswordPage = lazy(() =>
+  import('@/domains/auth/pages').then((module) => ({ default: module.SetupPasswordPage }))
+);
+const DashboardPage = lazy(() =>
+  import('@/domains/dashboard/pages').then((module) => ({ default: module.DashboardPage }))
+);
+const LeaveDefine = lazy(() =>
+  import('@/domains/leave/pages').then((module) => ({ default: module.LeaveDefine }))
+);
+const MyLeaveRequest = lazy(() =>
+  import('@/domains/leave/pages').then((module) => ({ default: module.MyLeaveRequest }))
+);
+const PendingRequest = lazy(() =>
+  import('@/domains/leave/pages').then((module) => ({ default: module.PendingRequest }))
+);
+const EditClass = lazy(() =>
+  import('@/domains/class/pages').then((module) => ({ default: module.EditClass }))
+);
+const ListClasses = lazy(() =>
+  import('@/domains/class/pages').then((module) => ({ default: module.ListClasses }))
+);
+const EditClassTeacher = lazy(() =>
+  import('@/domains/class-teacher/pages').then((module) => ({ default: module.EditClassTeacher }))
+);
+const ListClassTeachers = lazy(() =>
+  import('@/domains/class-teacher/pages').then((module) => ({ default: module.ListClassTeachers }))
+);
+const AddStudent = lazy(() =>
+  import('@/domains/student/pages').then((module) => ({ default: module.AddStudent }))
+);
+const EditStudent = lazy(() =>
+  import('@/domains/student/pages').then((module) => ({ default: module.EditStudent }))
+);
+const ListStudents = lazy(() =>
+  import('@/domains/student/pages').then((module) => ({ default: module.ListStudents }))
+);
+const ViewStudent = lazy(() =>
+  import('@/domains/student/pages').then((module) => ({ default: module.ViewStudent }))
+);
+const AddNotice = lazy(() =>
+  import('@/domains/notice/pages').then((module) => ({ default: module.AddNotice }))
+);
+const EditNotice = lazy(() =>
+  import('@/domains/notice/pages').then((module) => ({ default: module.EditNotice }))
+);
+const EditNoticeRecipientPage = lazy(() =>
+  import('@/domains/notice/pages').then((module) => ({ default: module.EditNoticeRecipientPage }))
+);
+const ListNoticeRecipients = lazy(() =>
+  import('@/domains/notice/pages').then((module) => ({ default: module.ListNoticeRecipients }))
+);
+const ListNotices = lazy(() =>
+  import('@/domains/notice/pages').then((module) => ({ default: module.ListNotices }))
+);
+const ManageNotices = lazy(() =>
+  import('@/domains/notice/pages').then((module) => ({ default: module.ManageNotices }))
+);
+const ViewNotice = lazy(() =>
+  import('@/domains/notice/pages').then((module) => ({ default: module.ViewNotice }))
+);
+const AddStaff = lazy(() =>
+  import('@/domains/staff/pages').then((module) => ({ default: module.AddStaff }))
+);
+const EditStaff = lazy(() =>
+  import('@/domains/staff/pages').then((module) => ({ default: module.EditStaff }))
+);
+const ListStaffs = lazy(() =>
+  import('@/domains/staff/pages').then((module) => ({ default: module.ListStaffs }))
+);
+const ViewStaff = lazy(() =>
+  import('@/domains/staff/pages').then((module) => ({ default: module.ViewStaff }))
+);
+const AccountPage = lazy(() =>
+  import('@/domains/account/pages').then((module) => ({ default: module.AccountPage }))
+);
+const EditSectionPage = lazy(() =>
+  import('@/domains/section/pages').then((module) => ({ default: module.EditSectionPage }))
+);
+const ListSectionPage = lazy(() =>
+  import('@/domains/section/pages').then((module) => ({ default: module.ListSectionPage }))
+);
+const EditDepartmentPage = lazy(() =>
+  import('@/domains/department/pages').then((module) => ({ default: module.EditDepartmentPage }))
+);
+const ListDepartmentsPage = lazy(() =>
+  import('@/domains/department/pages').then((module) => ({ default: module.ListDepartmentsPage }))
+);
 import { ErrorPage, NotFound } from '@/components/errors';
-import { MainLayout } from '@/components/layout';
-import { CertificatesPage } from '@/domains/certificate/pages/certificates-page';
-import { VerifyCertificatePage } from '@/domains/certificate/pages/verify-certificate-page';
-import { RoleAndPermission } from '@/domains/role-and-permission/pages';
+const MainLayout = lazy(() =>
+  import('@/components/layout').then((module) => ({ default: module.MainLayout }))
+);
+const CertificatesPage = lazy(() =>
+  import('@/domains/certificate/pages/certificates-page').then((module) => ({
+    default: module.CertificatesPage
+  }))
+);
+const VerifyCertificatePage = lazy(() =>
+  import('@/domains/certificate/pages/verify-certificate-page').then((module) => ({
+    default: module.VerifyCertificatePage
+  }))
+);
+const RoleAndPermission = lazy(() =>
+  import('@/domains/role-and-permission/pages').then((module) => ({
+    default: module.RoleAndPermission
+  }))
+);
 
 export const routes = [
   { path: '/verify', element: <VerifyCertificatePage />, errorElement: <ErrorPage /> },

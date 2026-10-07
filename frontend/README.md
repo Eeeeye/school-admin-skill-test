@@ -271,17 +271,13 @@ EXPOSE 3000
 CMD ["npm", "run", "preview"]
 ```
 
-## 🐛 Known Issues & Solutions
+## Session handling and upgrades
 
-### Issue 1: Notice Description Not Saving
-**Problem**: When creating a new notice, the description field doesn't get saved.
-**Location**: `/src/domains/notice/pages/add-notice.tsx`
-**Solution**: Check form field binding and API payload structure.
+Authentication state is persisted in `sessionStorage`, separately for each browser tab. HTTP-only authentication cookies remain shared by the browser. Signing in, signing out, or changing accounts in one tab invalidates the other tabs' old UI state and pending requests, using a non-sensitive event ID over BroadcastChannel and storage events. Other tabs return to sign-in instead of silently performing actions with the newly shared identity. No credentials or profile data are included in these notifications.
 
-### Issue 2: Student CRUD Operations
-**Problem**: Some CRUD operations for students may be incomplete.
-**Location**: `/src/domains/students/`
-**Solution**: Implement missing API endpoints and form handlers.
+After upgrading from the former shared `localStorage` authentication state, sign in again. The application removes its old `persist:root` localStorage entry automatically. A tab returning from suspension or reloading also checks the latest session event before restoring an identity. If browser storage and BroadcastChannel are both disabled, cross-tab notifications are unavailable.
+
+The frontend checks required leave dates, notice lengths and recipient fields, displays API errors, and refreshes affected lists after mutations. The backend remains responsible for authorization and final input validation. Run `node --test test/*.test.cjs` for isolated session/concurrency regressions, and use the repository's browser tests for full application flows.
 
 ## 📚 Useful Resources
 

@@ -28,6 +28,7 @@ export type NoticeDetailProps = Omit<NoticeFormProps, 'recipientRole' | 'firstFi
   firstField: string | null;
   id: number;
   author: string;
+  authorId: number;
   createdDate: Date;
 };
 

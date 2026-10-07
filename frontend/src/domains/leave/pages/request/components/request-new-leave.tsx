@@ -4,6 +4,9 @@ import { Button } from '@mui/material';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'react-toastify';
+import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
+import { SerializedError } from '@reduxjs/toolkit';
+import { getErrorMsg } from '@/utils/helpers/get-error-message';
 
 import { useLeaveRequest } from '../context/leave-request-provider';
 import { DialogModal } from '@/components/dialog-modal';
@@ -28,6 +31,13 @@ export const RequestNewLeave = () => {
   });
 
   const toggleModal = () => {
+    if (!isOpen)
+      methods.reset({
+        policy: myLeavePolicies[0]?.id ?? 0,
+        from: new Date(),
+        to: new Date(),
+        note: ''
+      });
     setIsOpen((isOpen) => !isOpen);
   };
   const onSave = async (data: LeaveRequestForm) => {
@@ -43,7 +53,7 @@ export const RequestNewLeave = () => {
       toast.success(result.message);
       toggleModal();
     } catch (error) {
-      console.log(error);
+      toast.error(getErrorMsg(error as FetchBaseQueryError | SerializedError).message);
     }
   };
 
@@ -53,6 +63,7 @@ export const RequestNewLeave = () => {
         size='small'
         variant='contained'
         onClick={toggleModal}
+        disabled={myLeavePolicies.length === 0}
         startIcon={<CalendarMonth />}
         sx={{ marginBottom: '10px' }}
       >

@@ -1,0 +1,72 @@
+name: Verify application
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      COMPOSE_PROJECT_NAME: school-ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+      - name: Backend tests
+        run: npm ci --prefix backend && npm test --prefix backend
+      - name: Contract and chain tests
+        working-directory: blockchain
+        run: pnpm install --frozen-lockfile --ignore-scripts && pnpm test
+      - name: Frontend build
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile --ignore-scripts && pnpm lint && node --test test/*.test.cjs && pnpm build
+      - name: Backup failure and recovery tests
+        run: python3 deploy/test-backup.py
+      - name: Build and start an isolated local stack
+        run: docker compose up --build -d --wait
+      - name: Real API and database regression tests
+        run: |
+          ./scripts/test-product.sh
+          ./scripts/test-database.sh
+      - name: Browser dependencies
+        run: |
+          npm install --prefix /tmp/school-browser --no-package-lock playwright@1.62.1
+          /tmp/school-browser/node_modules/.bin/playwright install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=/tmp/school-browser/node_modules/playwright" >> "$GITHUB_ENV"
+          echo "CHROME_PATH=$(node -e 'console.log(require("/tmp/school-browser/node_modules/playwright").chromium.executablePath())')" >> "$GITHUB_ENV"
+      - name: Browser journeys and error regressions
+        run: |
+          node scripts/test-product-ui.cjs
+          node scripts/test-audit-ui.cjs
+      - name: Dependency outages and persistent restart
+        run: node scripts/test-product-resilience.cjs
+      - name: Restore database, chain and IPFS into fresh isolated volumes
+        run: node scripts/test-product-restore.cjs
+      - name: Diagnostics on failure
+        if: failure()
+        run: docker compose ps && docker compose logs --tail 80
+      - name: Browser failure screenshot
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-failure
+          path: /tmp/school-audit-ui-failure.png
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Remove only the CI stack
+        if: always()
+        run: docker compose down -v

@@ -1,8 +1,10 @@
 const jwt = require("jsonwebtoken");
+const { randomUUID } = require("node:crypto");
 const { ApiError } = require("./api-error");
 
 const generateToken = (payload, secret, time) => {
-    return jwt.sign(payload, secret, { expiresIn: time });
+    // Two logins in the same second must not recreate a revoked refresh token.
+    return jwt.sign(payload, secret, { expiresIn: time, jwtid: randomUUID() });
 }
 
 const verifyToken = (token, secret) => {

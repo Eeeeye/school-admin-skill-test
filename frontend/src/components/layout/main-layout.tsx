@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { useLocation } from 'react-router-dom';
 import { Box, Drawer, Toolbar } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFnsV3';
@@ -8,10 +9,15 @@ import { DrawerContent } from './drawer-content';
 const drawerWidth = 280;
 
 export const MainLayout = ({ children }: { children: React.ReactNode }) => {
+  const location = useLocation();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [openNavMenu, setOpenNavMenu] = React.useState<null | string>(null);
   const [mobileOpen, setMobileOpen] = React.useState<boolean>(false);
   const [isClosing, setIsClosing] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
 
   const handleDrawerClose = () => {
     setMobileOpen(false);
@@ -76,6 +82,7 @@ export const MainLayout = ({ children }: { children: React.ReactNode }) => {
         component='main'
         sx={{
           flexGrow: 1,
+          minWidth: 0,
           p: 3,
           width: { sm: `calc(100% - ${drawerWidth}px)` }
         }}

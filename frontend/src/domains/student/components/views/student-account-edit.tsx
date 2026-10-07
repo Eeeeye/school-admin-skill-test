@@ -2,7 +2,7 @@ import * as React from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Edit } from '@mui/icons-material';
-import { Paper, Stack } from '@mui/material';
+import { Alert, LinearProgress, Paper, Stack } from '@mui/material';
 import { LoadingButton } from '@mui/lab';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
@@ -42,7 +42,7 @@ export const StudentAccountEdit: React.FC<StudentAccountEditProps> = ({
   const [updateStudent, { isLoading }] = useUpdateStudentMutation();
   const navigate = useNavigate();
 
-  const studentDetail = useGetStudentDetail(id);
+  const { currentData: studentDetail, isFetching, error } = useGetStudentDetail(id);
 
   React.useEffect(() => {
     if (studentDetail) {
@@ -70,6 +70,10 @@ export const StudentAccountEdit: React.FC<StudentAccountEditProps> = ({
       toast.error(message);
     }
   };
+
+  if (isFetching && !studentDetail) return <LinearProgress aria-label='Loading student' />;
+  if (error) return <Alert severity='error'>{getErrorMsg(error).message}</Alert>;
+  if (!studentDetail) return <Alert severity='info'>Student record not found.</Alert>;
 
   return (
     <>

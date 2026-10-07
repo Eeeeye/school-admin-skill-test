@@ -8,19 +8,33 @@
   },
   "scripts": {
     "compile": "hardhat compile",
-    "test": "hardhat test && node --test scripts/*.test.js",
+    "test": "node scripts/harden-ganache.cjs && hardhat test && node --test scripts/*.test.js",
     "node": "hardhat node",
-    "node:persistent": "node scripts/local-chain.js",
+    "node:persistent": "node scripts/harden-ganache.cjs && node scripts/local-chain.js",
+    "harden:runtime": "node scripts/harden-ganache.cjs",
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
     "upload:metadata": "node scripts/upload-metadata.js"
   },
-  "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "chai": "4.5.0",
-    "dotenv": "^16.4.5",
-    "ethers": "6.14.0",
+  "dependencies": {
+    "bn.js": "4.12.3",
+    "elliptic": "6.6.1",
+    "ethers": "6.17.0",
     "ganache": "7.9.2",
-    "hardhat": "^2.22.15",
+    "secp256k1": "4.0.5"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-ethers": "3.1.3",
+    "@nomicfoundation/hardhat-chai-matchers": "2.1.2",
+    "chai": "4.5.0",
+    "dotenv": "16.6.1",
+    "hardhat": "2.29.1",
     "solc": "0.8.24"
+  },
+  "pnpm": {
+    "overrides": {
+      "ws@>=8 <8.22.0": "8.22.0",
+      "lodash@<4.18.1": "4.18.1",
+      "bn.js@>=4 <4.12.3": "4.12.3"
+    }
   }
 }

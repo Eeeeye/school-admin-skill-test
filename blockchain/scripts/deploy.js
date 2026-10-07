@@ -1,19 +1,27 @@
 const fs = require("node:fs");
 const path = require("node:path");
-const { ethers, network } = require("hardhat");
 const { isLoopbackRpc } = require("./deploy-policy");
 
-async function main() {
-  const remoteDeployAllowed = process.env.ALLOW_REMOTE_DEPLOY === "true";
+async function main(hre = require("hardhat"), options = {}) {
+  const { ethers, network } = hre;
+  const env = options.env || process.env;
+  const remoteDeployAllowed = env.ALLOW_REMOTE_DEPLOY === "true";
   if (
     (!["hardhat", "localhost"].includes(network.name) ||
-      (network.name === "localhost" && !isLoopbackRpc(process.env.LOCAL_RPC_URL))) &&
+      (network.name === "localhost" && !isLoopbackRpc(env.LOCAL_RPC_URL))) &&
     !remoteDeployAllowed
   ) {
     throw new Error(
       `Refusing deployment to '${network.name}'. Set ALLOW_REMOTE_DEPLOY=true only after reviewing the network and signer.`
     );
   }
+
+  const outputDir = options.outputDir || path.join(__dirname, "..", "deployments");
+  const outputFile = path.join(outputDir, `${network.name}.json`);
+  if (fs.existsSync(outputFile)) {
+    throw new Error("Deployment metadata already exists; refusing to replace the registry. Preserve the existing file and chain state before an intentional new deployment.");
+  }
+  fs.mkdirSync(outputDir, { recursive: true });
 
   const [deployer] = await ethers.getSigners();
   if (!deployer) {
@@ -35,16 +43,20 @@ async function main() {
     deployedAt: new Date().toISOString(),
   };
 
-  const outputDir = path.join(__dirname, "..", "deployments");
-  fs.mkdirSync(outputDir, { recursive: true });
   fs.writeFileSync(
-    path.join(outputDir, `${network.name}.json`),
-    `${JSON.stringify(deployment, null, 2)}\n`
+    outputFile,
+    `${JSON.stringify(deployment, null, 2)}\n`,
+    { flag: "wx" }
   );
   console.log(JSON.stringify(deployment, null, 2));
+  return deployment;
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { main };

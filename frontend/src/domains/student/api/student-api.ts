@@ -2,7 +2,6 @@ import { api, Tag } from '@/api';
 import {
   AddStudent,
   GetStudentDetailProps,
-  GetTeachers,
   ReviewStudentStatusRequest,
   StudentData,
   StudentFilter,
@@ -19,10 +18,10 @@ export const studentApi = api.injectEndpoints({
         const queryString = getQueryString(payload);
         return `/students${queryString}`;
       },
-      providesTags: (result) =>
-        result?.students?.map(({ id }) => {
-          return { type: Tag.STUDENTS, id };
-        }) || [{ type: Tag.STUDENTS }]
+      providesTags: (result) => [
+        { type: Tag.STUDENTS },
+        ...(result?.students?.map(({ id }) => ({ type: Tag.STUDENTS, id })) ?? [])
+      ]
     }),
     getStudentDetail: builder.query<GetStudentDetailProps, string | undefined>({
       query: (id) => (id ? `/students/${id}` : `/account/me`),
@@ -58,7 +57,7 @@ export const studentApi = api.injectEndpoints({
         method: 'POST',
         body: { status }
       }),
-      invalidatesTags: (_result, _error, { id }) => [{ type: Tag.STUDENTS, id }]
+      invalidatesTags: (_result, _error, { id }) => [{ type: Tag.STUDENTS, id }, Tag.DASHBOARD]
     }),
     addStudent: builder.mutation<AddStudent, StudentProps>({
       query: (payload) => ({
@@ -66,7 +65,7 @@ export const studentApi = api.injectEndpoints({
         method: 'POST',
         body: payload
       }),
-      invalidatesTags: [Tag.STUDENTS]
+      invalidatesTags: [Tag.STUDENTS, Tag.DASHBOARD, Tag.LEAVE_ELIGIBLE_USERS]
     }),
     updateStudent: builder.mutation<{ message: string }, StudentPropsWithId>({
       query: ({ id, ...payload }) => ({
@@ -78,14 +77,11 @@ export const studentApi = api.injectEndpoints({
           admissionDate: getFormattedDate(payload.admissionDate, API_DATE_FORMAT)
         }
       }),
-      invalidatesTags: (_result, _error, { id }) => [{ type: Tag.STUDENTS, id }]
+      invalidatesTags: (_result, _error, { id }) => [{ type: Tag.STUDENTS, id }, Tag.DASHBOARD]
     }),
     deleteStudent: builder.mutation<{ message: string }, number>({
       query: (id) => ({ url: `/students/${id}`, method: 'DELETE' }),
       invalidatesTags: [Tag.STUDENTS, Tag.CERTIFICATES, Tag.DASHBOARD]
-    }),
-    getTeachers: builder.query<GetTeachers, void>({
-      query: () => `/teachers`
     })
   })
 });
@@ -94,8 +90,8 @@ export const {
   useGetStudentsQuery,
   useDeleteStudentMutation,
   useLazyGetStudentDetailQuery,
+  useGetStudentDetailQuery,
   useReviewStudentStatusMutation,
   useAddStudentMutation,
-  useUpdateStudentMutation,
-  useGetTeachersQuery
+  useUpdateStudentMutation
 } = studentApi;

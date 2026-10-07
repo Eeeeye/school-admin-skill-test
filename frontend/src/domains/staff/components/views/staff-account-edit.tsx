@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { Edit } from '@mui/icons-material';
-import { Paper, Stack } from '@mui/material';
+import { Alert, LinearProgress, Paper, Stack } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { FormProvider, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -35,7 +35,7 @@ export const StaffAccountEdit: React.FC<StaffAccountEditProps> = ({
   redirectPath,
   heading
 }) => {
-  const staffDetail = useGetStaffDetail(id);
+  const { currentData: staffDetail, isFetching, error } = useGetStaffDetail(id);
   const [updateStaff, { isLoading: isUpdatingStaff }] = useUpdateStaffMutation();
   const navigate = useNavigate();
 
@@ -69,6 +69,10 @@ export const StaffAccountEdit: React.FC<StaffAccountEditProps> = ({
       toast.error(getErrorMsg(error as FetchBaseQueryError | SerializedError).message);
     }
   };
+
+  if (isFetching && !staffDetail) return <LinearProgress aria-label='Loading staff' />;
+  if (error) return <Alert severity='error'>{getErrorMsg(error).message}</Alert>;
+  if (!staffDetail) return <Alert severity='info'>Staff record not found.</Alert>;
 
   return (
     <>
