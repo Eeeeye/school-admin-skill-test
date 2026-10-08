@@ -50,6 +50,10 @@ the private-chain deployment model.
   local Docker endpoint, development containers and matching loopback frontend
   port before making changes. Failed preflight cannot run cleanup against another
   project. Docker-context precedence is respected in restore checks as well.
+- Restore rehearsal now resolves immutable image references on both classic and
+  containerd Docker stores. A container's config digest is not always a reusable
+  image ID. A fallback index ID must resolve to the exact running platform manifest;
+  moved tags or missing evidence fail before snapshots or application changes.
 
 ## Verification
 
@@ -63,6 +67,8 @@ Focused checks completed during review:
 - Backup: seven failure/recovery tests.
 - Restart preflight: nine tests, including a child-process check proving that an
   invalid target cannot trigger Docker cleanup.
+- Immutable image resolution: eight tests and a real stopped-container check
+  proving that the recovered frontend uses the running platform manifest.
 
 The unchanged first-round API, database, browser, restart and full restore
 rehearsals remain in CI. Three additional real HTTP checks verify email-address

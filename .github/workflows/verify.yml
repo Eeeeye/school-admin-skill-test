@@ -38,6 +38,7 @@ jobs:
         run: |
           python3 deploy/test-backup.py
           node --test scripts/test-local-stack-guard.test.cjs
+          node --test scripts/test-docker-image.test.cjs
       - name: Build and start an isolated local stack
         run: docker compose up --build -d --wait
       - name: Reverse proxy routing and private-path checks

@@ -8,6 +8,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { randomUUID, createHash } = require('node:crypto');
+const { resolveContainerImage } = require('./lib/docker-image.cjs');
 
 const root = path.resolve(__dirname, '..');
 const sourceProject = process.env.COMPOSE_PROJECT_NAME;
@@ -27,6 +28,7 @@ const fixture = {
   password: `Restore-${randomUUID()}`,
 };
 const containers = {};
+const sourceImages = {};
 let temporary, cloneFile, sourceStopped = false, fixtureStarted = false, cloneCreated = false;
 let child, interrupted = false, cleaning = false;
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {
@@ -191,8 +193,8 @@ const escapeCompose = (value) => typeof value === 'string' ? value.replaceAll('$
   : Array.isArray(value) ? value.map(escapeCompose)
     : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, item]) => [key, escapeCompose(item)])) : value;
 
-function cloneService(source, volumes = []) {
-  const result = { image: source.Image, pull_policy: 'never', environment: envMap(source), volumes };
+function cloneService(source, image, volumes = []) {
+  const result = { ...image, pull_policy: 'never', environment: envMap(source), volumes };
   if (source.Config.Entrypoint) result.entrypoint = source.Config.Entrypoint;
   if (source.Config.Cmd) result.command = source.Config.Cmd;
   if (source.Config.User) result.user = source.Config.User;
@@ -230,6 +232,8 @@ async function main() {
     assert.equal(container.Config.Labels['com.docker.compose.service'], service);
     assert.match(container.Image, /^sha256:[a-f0-9]{64}$/);
     containers[service] = container;
+    sourceImages[service] = await resolveContainerImage(container, async (args) =>
+      JSON.parse(await docker(['image', 'inspect', ...args]))[0]);
   }
   assert.equal(envMap(containers.backend).CERTIFICATE_DEMO_MODE, 'true');
   assert.notEqual(envMap(containers.backend).NODE_ENV, 'production');
@@ -254,27 +258,28 @@ async function main() {
     assert.ok(mount && mount.Name === `${sourceProject}_${name}`, `Expected an isolated ${name} volume`);
     const archive = path.join(temporary, `${name}.tar.gz`);
     await docker(['run', '--rm', '--network', 'none', '--read-only',
+      ...(sourceImages.postgres.platform ? ['--platform', sourceImages.postgres.platform] : []),
       '--mount', `type=volume,source=${mount.Name},target=/source,readonly`,
-      '--entrypoint', 'tar', containers.postgres.Image, '-czf', '-', '-C', '/source', '.'], { outputFile: archive });
+      '--entrypoint', 'tar', sourceImages.postgres.image, '-czf', '-', '-C', '/source', '.'], { outputFile: archive });
     archives[name] = archive;
   }
   const digests = {};
   for (const file of [dump, ...Object.values(archives)]) digests[path.basename(file)] = await sha256(file);
-  await fsp.writeFile(path.join(temporary, 'manifest.json'), JSON.stringify({ expected, images: Object.fromEntries(services.map((name) => [name, containers[name].Image])), sha256: digests }, null, 2), { mode: 0o600 });
+  await fsp.writeFile(path.join(temporary, 'manifest.json'), JSON.stringify({ expected, images: sourceImages, sha256: digests }, null, 2), { mode: 0o600 });
   await resumeSource();
   console.log('PASS: consistent PostgreSQL, chain, deployment and IPFS snapshots; original services restored.');
 
   // This is a standalone Compose file. No inherited ports or source-volume names
   // can leak into the clone; it publishes no ports and reuses exact image IDs.
   const config = { services: {
-    postgres: cloneService(containers.postgres, ['postgres-data:/var/lib/postgresql/data']),
-    blockchain: cloneService(containers.blockchain, ['blockchain-data:/chain-data', 'blockchain-deployments:/deployments']),
-    ipfs: cloneService(containers.ipfs, ['ipfs-data:/data/ipfs']),
-    backend: cloneService(containers.backend, [
+    postgres: cloneService(containers.postgres, sourceImages.postgres, ['postgres-data:/var/lib/postgresql/data']),
+    blockchain: cloneService(containers.blockchain, sourceImages.blockchain, ['blockchain-data:/chain-data', 'blockchain-deployments:/deployments']),
+    ipfs: cloneService(containers.ipfs, sourceImages.ipfs, ['ipfs-data:/data/ipfs']),
+    backend: cloneService(containers.backend, sourceImages.backend, [
       { type: 'bind', source: path.join(root, 'seed_db/migrations'), target: '/migrations', read_only: true },
       'blockchain-deployments:/blockchain-deployments:ro',
     ]),
-    frontend: cloneService(containers.frontend),
+    frontend: cloneService(containers.frontend, sourceImages.frontend),
   }, volumes: { 'postgres-data': {}, 'blockchain-data': {}, 'blockchain-deployments': {}, 'ipfs-data': {} } };
   cloneFile = path.join(temporary, 'compose.restore.json');
   await fsp.writeFile(cloneFile, JSON.stringify(escapeCompose(config), null, 2), { mode: 0o600 });
@@ -293,8 +298,9 @@ async function main() {
   for (const [name, archive] of Object.entries(archives)) {
     assert.equal(await sha256(archive), digests[path.basename(archive)]);
     await docker(['run', '--rm', '-i', '--network', 'none', '--read-only',
+      ...(sourceImages.postgres.platform ? ['--platform', sourceImages.postgres.platform] : []),
       '--mount', `type=volume,source=${cloneProject}_${name},target=/restore`,
-      '--entrypoint', 'tar', containers.postgres.Image, '-xzf', '-', '-C', '/restore'], { inputFile: archive });
+      '--entrypoint', 'tar', sourceImages.postgres.image, '-xzf', '-', '-C', '/restore'], { inputFile: archive });
   }
   await docker(['start', cloneIds.blockchain, cloneIds.ipfs]);
   await waitHealthy([cloneIds.blockchain, cloneIds.ipfs]);
