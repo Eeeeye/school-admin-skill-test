@@ -8,7 +8,9 @@ const handleEmailVerificationToken = (req, res, next) => {
   }
 
   const decodeToken = verifyToken(token, env.EMAIL_VERIFICATION_TOKEN_SECRET);
-  if (!decodeToken || !decodeToken.id) {
+  if (!decodeToken || !Number.isSafeInteger(decodeToken.id) || decodeToken.id <= 0
+      || decodeToken.purpose !== "verify-email" || typeof decodeToken.email !== "string"
+      || !decodeToken.email || decodeToken.email.length > 100) {
     throw new ApiError(400, "Invalid token");
   }
 

@@ -219,7 +219,8 @@ async function main() {
   // Fail closed for remote Docker contexts; this test never uses an SSH server.
   const contextName = await docker(['context', 'show']);
   const context = JSON.parse(await docker(['context', 'inspect', contextName]))[0];
-  const endpoint = process.env.DOCKER_HOST || context.Endpoints.docker.Host;
+  const endpoint = process.env.DOCKER_CONTEXT ? context.Endpoints.docker.Host
+    : process.env.DOCKER_HOST || context.Endpoints.docker.Host;
   assert.ok(endpoint.startsWith('unix://'), 'Recovery rehearsal requires a local Unix-socket Docker daemon');
   for (const service of services) {
     const ids = await compose(sourceProject, null, 'ps', '-q', service);

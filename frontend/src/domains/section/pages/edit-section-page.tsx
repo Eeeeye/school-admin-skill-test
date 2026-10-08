@@ -11,7 +11,7 @@ import { ManageSection } from '../components';
 
 export const EditSectionPage = () => {
   const { id } = useParams();
-  const { data: sectionDetail, isLoading, isError, error } = useGetSectionQuery(Number(id));
+  const { currentData: sectionDetail, isFetching, isError, error } = useGetSectionQuery(Number(id));
 
   const methods = useForm<SectionForm>({
     defaultValues: { name: '' },
@@ -26,7 +26,7 @@ export const EditSectionPage = () => {
   }, [sectionDetail, methods]);
 
   let content: React.ReactNode | null = null;
-  if (isLoading) {
+  if (isFetching && !sectionDetail) {
     content = <>loading...</>;
   } else if (isError) {
     content = <>{getErrorMsg(error).message}</>;

@@ -31,7 +31,7 @@ export const EditNotice = () => {
   const userId = useSelector(getUserId);
   const role = useSelector(getUserRole);
   const navigate = useNavigate();
-  const { data, isLoading, isError, error } = useGetNoticeDetailQuery(id);
+  const { currentData: data, isFetching, isError, error } = useGetNoticeDetailQuery(id);
   const [selectedRoleId, setSelectedRoleId] = React.useState<number>(0);
   const [updateNotice, { isLoading: updatingNotice }] = useUpdateNoticeMutation();
 
@@ -78,7 +78,7 @@ export const EditNotice = () => {
     }
   };
 
-  if (isLoading) {
+  if (isFetching && !data) {
     return <div>Loading...</div>;
   } else if (isError) {
     return <div>{getErrorMsg(error)?.message}</div>;

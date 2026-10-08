@@ -63,8 +63,14 @@ function createRepository(client = db) {
         }
         return await operation(createRepository(connection));
       } finally {
-        if (acquired) await connection.query("SELECT pg_advisory_unlock(732941, 1)").catch(() => {});
-        connection.release();
+        let releaseError;
+        if (acquired) {
+          try { await connection.query("SELECT pg_advisory_unlock(732941, 1)"); }
+          catch (error) { releaseError = error; }
+        }
+        // Session locks survive pool checkout. If cleanup fails, close this
+        // connection so it cannot indefinitely block the other pool clients.
+        connection.release(releaseError);
       }
     },
   };

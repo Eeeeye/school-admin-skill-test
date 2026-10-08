@@ -79,21 +79,16 @@ const deleteOldRefreshTokenByUserId = async (userId, client) => {
     await client.query(query, queryParams);
 }
 
-const isEmailVerified = async (id) => {
-    const query = 'SELECT is_email_verified FROM users WHERE id = $1';
-    const queryParams = [id];
-    const { rows } = await processDBRequest({ query, queryParams });
-    return rows[0]?.is_email_verified ?? null;
-}
-
-const verifyAccountEmail = async (id) => {
+const verifyAccountEmail = async (id, email) => {
+    // Match the address proved by the link in the same statement that consumes
+    // it. A prior read would allow an address edit or a second click to race.
     const query = `
         UPDATE users
         SET is_email_verified = true
-        WHERE id = $1
+        WHERE id = $1 AND email = $2 AND is_email_verified = false
         RETURNING *
     `;
-    const queryParams = [id];
+    const queryParams = [id, email];
     const { rows } = await processDBRequest({ query, queryParams });
     return rows[0];
 }
@@ -135,7 +130,6 @@ module.exports = {
     getRoleNameByRoleId,
     saveUserLastLoginDate,
     deleteOldRefreshTokenByUserId,
-    isEmailVerified,
     verifyAccountEmail,
     doesEmailExist,
     setupUserPassword,

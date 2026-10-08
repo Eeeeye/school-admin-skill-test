@@ -23,7 +23,7 @@ export const ViewNotice = () => {
 
   const navigate = useNavigate();
   const [deleteNotice, { isLoading: isDeletingNotice }] = useHandleNoticeStatusMutation();
-  const { data: noticeDetail, isLoading, isError, error } = useGetNoticeDetailQuery(id);
+  const { currentData: noticeDetail, isFetching, isError, error } = useGetNoticeDetailQuery(id);
 
   const toggleDeleteConfirmationModal = () => {
     setModalOpen(!modalOpen);
@@ -47,7 +47,7 @@ export const ViewNotice = () => {
   };
 
   let content: null | React.ReactElement = null;
-  if (isLoading) {
+  if (isFetching && !noticeDetail) {
     content = <ViewNoticeSkeleton />;
   } else if (isError) {
     content = <>{getErrorMsg(error).message}</>;

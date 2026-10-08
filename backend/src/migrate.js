@@ -25,8 +25,11 @@ async function migrate(db, directory = process.env.DB_MIGRATIONS_DIR || path.res
       }
     }
   } finally {
-    await client.query("SELECT pg_advisory_unlock(723091)").catch(() => {});
-    client.release();
+    let releaseError;
+    try { await client.query("SELECT pg_advisory_unlock(723091)"); }
+    catch (error) { releaseError = error; }
+    // Never recycle a session that may still own the migration lock.
+    client.release(releaseError);
   }
 }
 

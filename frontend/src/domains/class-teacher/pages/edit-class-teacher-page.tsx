@@ -17,7 +17,12 @@ const initialState = {
 
 export const EditClassTeacher = () => {
   const { id } = useParams();
-  const { data: classTeacherDetail, isLoading, isError, error } = useGetClassTeacherDetailQuery(id);
+  const {
+    currentData: classTeacherDetail,
+    isFetching,
+    isError,
+    error
+  } = useGetClassTeacherDetailQuery(id);
 
   const methods = useForm<ClassTeacherProps>({
     defaultValues: initialState,
@@ -32,7 +37,7 @@ export const EditClassTeacher = () => {
   }, [classTeacherDetail, methods]);
 
   let content: React.ReactNode = null;
-  if (isLoading) {
+  if (isFetching && !classTeacherDetail) {
     content = <>loading...</>;
   } else if (isError) {
     content = <>{getErrorMsg(error).message}</>;

@@ -11,7 +11,12 @@ import { DepartmentForm, DepartmentSchema } from '../types';
 
 export const EditDepartmentPage = () => {
   const { id } = useParams();
-  const { data: departmentDetail, isLoading, isError, error } = useGetDepartmentQuery(Number(id));
+  const {
+    currentData: departmentDetail,
+    isFetching,
+    isError,
+    error
+  } = useGetDepartmentQuery(Number(id));
 
   const methods = useForm<DepartmentForm>({
     defaultValues: { name: '' },
@@ -26,7 +31,7 @@ export const EditDepartmentPage = () => {
   }, [departmentDetail, methods]);
 
   let content: React.ReactNode | null = null;
-  if (isLoading) {
+  if (isFetching && !departmentDetail) {
     content = <>loading...</>;
   } else if (isError) {
     content = <>{getErrorMsg(error).message}</>;

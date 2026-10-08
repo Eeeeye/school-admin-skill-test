@@ -8,7 +8,7 @@ import {
 import { toast } from 'react-toastify';
 import { FetchBaseQueryError } from '@reduxjs/toolkit/query';
 import { SerializedError } from '@reduxjs/toolkit';
-import { Box, Button, IconButton } from '@mui/material';
+import { Alert, Box, Button, IconButton, LinearProgress } from '@mui/material';
 import { Add, Delete, Edit } from '@mui/icons-material';
 import { LoadingButton } from '@mui/lab';
 
@@ -67,7 +67,7 @@ const updatePermissionsAvailability = (
 
 export const PermissionList: React.FC<PermissionListProps> = ({ roleId }) => {
   const [rowSelection, setRowSelection] = React.useState<MRT_RowSelectionState>({});
-  const { data, isLoading: isFetchingCurrentRolePermission } = useGetRolePermissionsQuery(roleId);
+  const { currentData: data, isFetching, error, refetch } = useGetRolePermissionsQuery(roleId);
   const [currentRolePermissions, setCurrentRolePermissions] = React.useState<ExtendedPermission[]>(
     []
   );
@@ -79,17 +79,14 @@ export const PermissionList: React.FC<PermissionListProps> = ({ roleId }) => {
     useUpdateRolePermissionMutation();
 
   React.useEffect(() => {
-    if (permissions) {
-      const updatedPermissions = updatePermissionsAvailability(
-        permissions,
-        data?.permissions ?? []
-      );
+    if (permissions && data) {
+      const updatedPermissions = updatePermissionsAvailability(permissions, data.permissions);
       setCurrentRolePermissions(updatedPermissions);
     }
   }, [roleId, permissions, data]);
 
   React.useEffect(() => {
-    if (currentRolePermissions && currentRolePermissions.length > 0) {
+    if (currentRolePermissions) {
       const initialSelected = currentRolePermissions.reduce((acc, menu) => {
         if (menu.isPermissionAvailable) {
           acc[menu.id.toString()] = true;
@@ -122,8 +119,9 @@ export const PermissionList: React.FC<PermissionListProps> = ({ roleId }) => {
   ];
   const handleSave = async (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
+    if (!data || error || isFetching) return;
     try {
-      const ids = Object.keys(rowSelection);
+      const ids = Object.keys(rowSelection).filter((id) => rowSelection[id]);
       const result = await updatePermissions({
         id: roleId!,
         permissions: ids.length > 0 ? ids.join(',') : ''
@@ -151,7 +149,7 @@ export const PermissionList: React.FC<PermissionListProps> = ({ roleId }) => {
     state: {
       density: 'compact',
       rowSelection,
-      isLoading: isFetchingCurrentRolePermission
+      isLoading: isFetching
     },
     enablePagination: false,
     enableDensityToggle: false,
@@ -196,12 +194,22 @@ export const PermissionList: React.FC<PermissionListProps> = ({ roleId }) => {
   });
 
   const { action, id } = formState;
+  if (error) {
+    return (
+      <Alert severity='error' action={<Button onClick={() => refetch()}>Retry</Button>}>
+        {getErrorMsg(error).message}
+      </Alert>
+    );
+  }
+  if (!data) return <LinearProgress aria-label='Loading role permissions' />;
+
   return (
     <>
       <Box sx={{ width: '100%', display: 'table', tableLayout: 'fixed' }}>
         <MaterialReactTable table={table} />
         <LoadingButton
           loading={isUpdatingPermissions}
+          disabled={isFetching}
           sx={{ marginTop: '20px' }}
           size='medium'
           variant='contained'

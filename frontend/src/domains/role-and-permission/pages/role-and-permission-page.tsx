@@ -1,5 +1,14 @@
 import * as React from 'react';
-import { Box, Tab, Tabs, useMediaQuery, useTheme } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  LinearProgress,
+  Tab,
+  Tabs,
+  useMediaQuery,
+  useTheme
+} from '@mui/material';
 import { AdminPanelSettings } from '@mui/icons-material';
 
 import { PageContentHeader } from '@/components/page-content-header';
@@ -10,10 +19,13 @@ import { Permission } from '@/utils/type/misc';
 import { ExtendedPermission } from '../types';
 import { RolePermissionProvider, useRolePermission } from '../context/role-permission-provider';
 import { OverviewTab } from '../components/overview-tab/overview-tab';
+import { getErrorMsg } from '@/utils/helpers/get-error-message';
 
 const RoleAndPermissionPage = () => {
-  const { data: rolesData } = useGetRolesQuery();
-  const { data: permissionsData } = useGetPermissionsQuery();
+  const rolesQuery = useGetRolesQuery();
+  const permissionsQuery = useGetPermissionsQuery();
+  const rolesData = rolesQuery.data;
+  const permissionsData = permissionsQuery.data;
   const { state, dispatch } = useRolePermission();
   const theme = useTheme();
   const isSmallScreen = useMediaQuery(theme.breakpoints.down('md'));
@@ -46,6 +58,28 @@ const RoleAndPermissionPage = () => {
   };
 
   const { roleTab, roles } = state;
+  const error = rolesQuery.error || permissionsQuery.error;
+  if (error) {
+    return (
+      <Alert
+        severity='error'
+        action={
+          <Button
+            onClick={() => {
+              rolesQuery.refetch();
+              permissionsQuery.refetch();
+            }}
+          >
+            Retry
+          </Button>
+        }
+      >
+        {getErrorMsg(error).message}
+      </Alert>
+    );
+  }
+  if (!rolesData || !permissionsData) return <LinearProgress aria-label='Loading permissions' />;
+
   return (
     <>
       <PageContentHeader

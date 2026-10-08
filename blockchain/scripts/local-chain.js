@@ -112,7 +112,14 @@ async function main() {
     await writeJsonAtomic(readyFile, { chainId: CHAIN_ID, address: deployment.address, rpcUrl });
     console.log(JSON.stringify({ event: "registry-ready", address: deployment.address, chainId: CHAIN_ID, rpcUrl }));
   } catch (error) {
-    await shutdown(1);
+    // Ganache may already be closed when listen() fails (for example when the
+    // configured port is occupied). A secondary close error must not hide the
+    // actual startup failure or accidentally publish a ready chain.
+    try {
+      await shutdown(1);
+    } catch (cleanupError) {
+      console.error(`Chain cleanup failed: ${cleanupError.message}`);
+    }
     throw error;
   }
 }

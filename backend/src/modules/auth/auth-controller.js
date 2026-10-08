@@ -34,8 +34,8 @@ const handleTokenRefresh = asyncHandler(async (req, res) => {
 });
 
 const handleAccountEmailVerify = asyncHandler(async (req, res) => {
-    const { id } = req.user;
-    const message = await processAccountEmailVerify(id);
+    const { id, email } = req.user;
+    const message = await processAccountEmailVerify(id, email);
     res.json(message);
 });
 

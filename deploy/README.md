@@ -81,6 +81,10 @@ flows work, but mail delivery and emailed account activation do not.
 Only Caddy publishes 80/443. Its fixed internal address is `172.30.77.10`; the
 backend trusts that exact proxy. Browser wallets supply recipient addresses;
 they are not offered a private RPC or asked to sign issuance transactions.
+Caddy rejects dotfile and development-only paths before routing, and missing
+`/assets/` files return 404 instead of the SPA HTML. These guards also apply to
+the local frontend profile. The reserved ACME challenge path remains available
+for HTTPS renewal; API, icon and read-only IPFS requests retain their proxies.
 
 After the public site is ready, run `node scripts/test-server.cjs` on the
 administrator's computer. It reads `.server-deploy/access.json` privately and
@@ -147,3 +151,10 @@ python3 deploy/test-backup.py
 The backup tests use a fake Docker CLI and do not access live containers. Perform
 a real backup and restore rehearsal on disposable volumes before relying on it
 for irreplaceable data.
+
+With Docker available, run `python3 deploy/test-caddy.py` to test both Caddy
+profiles using real HTTP requests in temporary containers. It checks blocked
+paths (including deliberately copied private fixtures), static assets, SPA
+routes, ACME and proxy behavior against local fixture upstreams. It uses an
+ephemeral loopback port and removes its containers and anonymous volumes.
+`DOCKER` and `CADDY_TEST_IMAGE` optionally override the executable and image.

@@ -126,7 +126,15 @@ export const leaveApi = api.injectEndpoints({
         body: { name }
       }),
       invalidatesTags: (result, _error, { id }) =>
-        result ? [{ type: Tag.LEAVE_POLICIES, id }] : []
+        result
+          ? [
+              { type: Tag.LEAVE_POLICIES, id },
+              Tag.MY_LEAVE_POLICIES,
+              Tag.LEAVE_HISTORY,
+              Tag.PENDING_LEAVES,
+              Tag.DASHBOARD
+            ]
+          : []
     }),
     handleLeavePolicy: builder.mutation<{ message: string }, PolicyStatus>({
       query: ({ id, status }) => ({
@@ -135,7 +143,7 @@ export const leaveApi = api.injectEndpoints({
         body: { status }
       }),
       invalidatesTags: (result, _error, { id }) =>
-        result ? [{ type: Tag.LEAVE_POLICIES, id }] : []
+        result ? [{ type: Tag.LEAVE_POLICIES, id }, Tag.MY_LEAVE_POLICIES, Tag.DASHBOARD] : []
     }),
     addUserToPolicy: builder.mutation<{ message: string }, AddUserToPolicy>({
       query: ({ userList, id }) => ({
@@ -149,7 +157,8 @@ export const leaveApi = api.injectEndpoints({
               Tag.LEAVE_POLICY_USERS,
               Tag.LEAVE_ELIGIBLE_USERS,
               Tag.LEAVE_POLICIES,
-              Tag.MY_LEAVE_POLICIES
+              Tag.MY_LEAVE_POLICIES,
+              Tag.DASHBOARD
             ]
           : []
     }),
@@ -159,12 +168,13 @@ export const leaveApi = api.injectEndpoints({
         method: 'DELETE',
         body: { user: userId }
       }),
-      invalidatesTags: (result, _error, { userId }) => {
+      invalidatesTags: (result, _error, { policyId }) => {
         return result
           ? [
-              { type: Tag.LEAVE_POLICY_USERS, id: userId },
+              { type: Tag.LEAVE_POLICIES, id: policyId },
               Tag.MY_LEAVE_POLICIES,
-              Tag.LEAVE_POLICY_USERS
+              Tag.LEAVE_POLICY_USERS,
+              Tag.DASHBOARD
             ]
           : [];
       }

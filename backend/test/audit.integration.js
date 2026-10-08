@@ -2,6 +2,7 @@
 const assert = require("node:assert/strict");
 const { randomUUID } = require("node:crypto");
 const argon2 = require("argon2");
+const jwt = require("jsonwebtoken");
 const { db } = require("./src/config");
 
 const origin = process.env.PRODUCT_TEST_ORIGIN || "http://frontend";
@@ -92,6 +93,23 @@ async function main() {
   await admin.request(`/roles/${roleId}/status`, post({ status: true }));
   await editor.request("/account/me", {}, 401);
   await editor.request("/auth/login", post({ username: editor.email, password }));
+
+  // An old verification link must not prove ownership of a replacement email.
+  // This also exercises concurrent consumption against a real PostgreSQL row.
+  const verificationToken = (email) => jwt.sign({ id: student.id, email, purpose: "verify-email" },
+    process.env.EMAIL_VERIFICATION_TOKEN_SECRET, { expiresIn: "5m" });
+  const oldVerification = verificationToken(student.email);
+  const changedEmail = `changed-${runId}@example.invalid`;
+  await db.query("UPDATE users SET email=$1,is_email_verified=false WHERE id=$2", [changedEmail, student.id]);
+  await session().request(`/auth/verify-email/${oldVerification}`, {}, 400);
+  assert.equal((await db.query("SELECT is_email_verified FROM users WHERE id=$1", [student.id])).rows[0].is_email_verified, false);
+  const currentVerification = verificationToken(changedEmail);
+  const verificationResults = await Promise.all([1, 2].map(() => fetch(`${origin}/api/v1/auth/verify-email/${currentVerification}`)));
+  assert.deepEqual(verificationResults.map((response) => response.status).sort(), [200, 400]);
+  await Promise.all(verificationResults.map((response) => response.arrayBuffer()));
+  checks += 2;
+  assert.equal((await db.query("SELECT is_email_verified FROM users WHERE id=$1", [student.id])).rows[0].is_email_verified, true);
+  await db.query("UPDATE users SET email=$1 WHERE id=$2", [student.email, student.id]);
 
   await admin.request("/sections", post({ name: sectionNames[0] }));
   sectionId = (await db.query("SELECT id FROM sections WHERE name=$1", [sectionNames[0]])).rows[0].id;

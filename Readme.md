@@ -170,9 +170,12 @@ design. Never use the public local-chain test key for a public deployment.
 
 ### Repeatable verification
 
-With the Docker stack running:
+Use a dedicated local review stack. Stop any other development stack occupying
+the same local ports first; the review stack uses separate named data volumes.
 
 ```bash
+export COMPOSE_PROJECT_NAME=school-review
+docker compose up --build -d --wait
 ./scripts/test-product.sh
 # Fresh installation / repeated migrations (isolated temporary database)
 ./scripts/test-database.sh
@@ -183,8 +186,12 @@ node scripts/test-product-ui.cjs
 # UI regressions: refresh races, session cache, missing records, empty lists and validation
 node scripts/test-audit-ui.cjs
 # Restore DB, certificate chain and IPFS into disposable volumes (isolated review stack only)
-COMPOSE_PROJECT_NAME=school-review node scripts/test-product-restore.cjs
+node scripts/test-product-restore.cjs
 ```
+
+Restart rehearsals verify the local Docker endpoint, Compose project, running
+development containers and frontend port before any mutation. They refuse to
+target the hosted server or an unrelated Docker context.
 
 The API runner covers student/certificate, notice/leave, and department/staff/
 class-teacher workflows. The API scripts create isolated fixtures and clean them up. The database test
@@ -213,7 +220,8 @@ tests, 9 contract tests and 16 chain/helper tests, and the frontend build.
 The deployed HTTPS application passed 45 public API checks, login and 12
 management-page checks, public certificate verification and revocation, and
 data-persistence checks after service restart. Backups passed checksum/archive
-checks; a full restore into fresh volumes has not been rehearsed.
+checks. That earlier run did not include a full restore rehearsal; the
+[8 October review](docs/review-2026-10-08.md) subsequently added and verified it.
 
 A further live Chrome browser audit on 2026-10-07 exercised login, 13 management
 pages, section/class creation, student create/edit/filter/delete forms, notice

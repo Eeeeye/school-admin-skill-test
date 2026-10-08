@@ -5,7 +5,7 @@ const { emailVerificationTemplate } = require("../templates");
 
 const sendAccountVerificationEmail = async ({ userId, userEmail }) => {
   const pwdToken = generateToken(
-    { id: userId },
+    { id: userId, email: userEmail, purpose: "verify-email" },
     env.EMAIL_VERIFICATION_TOKEN_SECRET,
     env.EMAIL_VERIFICATION_TOKEN_TIME_IN_MS
   );

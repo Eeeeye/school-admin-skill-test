@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
+const { assertLocalTestStack } = require('./lib/local-stack.cjs');
 const root = path.resolve(__dirname, '..');
 const origin = process.env.PRODUCT_URL || 'http://localhost:5173';
 assert(['localhost', '127.0.0.1', '[::1]'].includes(new URL(origin).hostname));
@@ -10,6 +11,7 @@ const compose = (...args) => execFileSync('docker', ['compose', ...args], { cwd:
 const jar = new Map();
 let studentId;
 const ids = [];
+let checkedStack = false;
 async function request(route, method = 'GET', body, expected = 200, headers = {}) {
   // Synchronous Compose restarts can close pooled sockets while Node cannot
   // process their close events. Every probe must connect to the current server.
@@ -27,6 +29,8 @@ async function request(route, method = 'GET', body, expected = 200, headers = {}
   return data;
 }
 async function main() {
+  assertLocalTestStack({ root, origin });
+  checkedStack = true;
   await request('/auth/login', 'POST', { username: 'admin@school-admin.com', password: process.env.PRODUCT_TEST_ADMIN_PASSWORD || '3OU4zn3q6Zh9' });
   const config = await request('/certificates/config');
   assert.equal(config.demoMode, true); assert.equal(config.chainId, 31337); assert.equal(config.available, true);
@@ -64,6 +68,7 @@ async function main() {
   console.log('PASS: database/IPFS/API restart preserves the student link and metadata; revoked state survives chain restart.');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; }).finally(async () => {
+  if (!checkedStack) return;
   compose('up', '-d', '--wait');
   // Delete only fixtures created by this test. On-chain audit history is immutable.
   for (const id of ids) {

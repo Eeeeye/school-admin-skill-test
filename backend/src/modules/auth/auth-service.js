@@ -17,7 +17,6 @@ const {
   getRoleNameByRoleId,
   saveUserLastLoginDate,
   deleteOldRefreshTokenByUserId,
-  isEmailVerified,
   verifyAccountEmail,
   setupUserPassword,
   findUserForPasswordUpdate,
@@ -159,23 +158,15 @@ const getNewAccessAndCsrfToken = async (refreshToken) => {
   }
 };
 
-const processAccountEmailVerify = async (id) => {
+const processAccountEmailVerify = async (id, email) => {
   const EMAIL_VERIFIED_AND_EMAIL_SEND_SUCCESS =
     "Email verified successfully. Please setup password using link provided in the email.";
   const EMAIL_VERIFIED_BUT_EMAIL_SEND_FAIL =
     "Email verified successfully but fail to send password setup email. Please setup password using link provided in the email.";
   try {
-    const isEmailAlreadyVerified = await isEmailVerified(id);
-    if (isEmailAlreadyVerified === null) {
-      throw new ApiError(404, USER_DOES_NOT_EXIST);
-    }
-    if (isEmailAlreadyVerified) {
-      throw new ApiError(400, "Email already verified");
-    }
-
-    const user = await verifyAccountEmail(id);
+    const user = await verifyAccountEmail(id, email);
     if (!user) {
-      throw new ApiError(404, USER_DOES_NOT_EXIST);
+      throw new ApiError(400, "Verification link is invalid, has already been used, or belongs to a previous email address");
     }
 
     try {

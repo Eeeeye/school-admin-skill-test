@@ -20,39 +20,58 @@
 		format json # set access log format to json mode
 	}
 
-	# Keep API traffic on the Compose network while the browser uses one origin.
-	handle /api/* {
-		reverse_proxy {$BACKEND_UPSTREAM:localhost:5007}
-	}
+	# Keep scanner/development paths out of the SPA fallback, even if a
+	# dotfile is accidentally copied into the static output. ACME challenges
+	# remain available for Caddy's automatic HTTPS renewal.
+	route {
+		@privateFiles {
+			path_regexp privateFile (^|/)\.[^/]+
+			not path_regexp acmeChallenge ^/\.well-known/acme-challenge/[A-Za-z0-9_-]+$
+		}
+		respond @privateFiles "Not found" 404
+		@developmentPaths path /@fs /@fs/* /@vite /@vite/* /node_modules /node_modules/*
+		respond @developmentPaths "Not found" 404
 
-	# The menu icons are served by the backend's public directory. Keep them
-	# same-origin in Compose as well, so the browser does not need CORS.
-	handle /backend-assets/* {
-		uri strip_prefix /backend-assets
-		reverse_proxy {$BACKEND_UPSTREAM:localhost:5007}
-	}
+		# Keep API traffic on the Compose network while the browser uses one origin.
+		handle /api/* {
+			reverse_proxy {$BACKEND_UPSTREAM:localhost:5007}
+		}
 
-	# Read-only content gateway; the IPFS administrative API is never exposed.
-	handle /ipfs/* {
-		@write not method GET HEAD
-		respond @write "Method not allowed" 405
-		reverse_proxy {$IPFS_UPSTREAM:localhost:8080}
-	}
+		# The menu icons are served by the backend's public directory. Keep them
+		# same-origin in Compose as well, so the browser does not need CORS.
+		handle /backend-assets/* {
+			uri strip_prefix /backend-assets
+			reverse_proxy {$BACKEND_UPSTREAM:localhost:5007}
+		}
 
-	# Lightweight container readiness endpoint.
-	handle /health {
-		respond "ok" 200
-	}
+		# Read-only content gateway; the IPFS administrative API is never exposed.
+		handle /ipfs/* {
+			@write not method GET HEAD
+			respond @write "Method not allowed" 405
+			reverse_proxy {$IPFS_UPSTREAM:localhost:8080}
+		}
 
-	handle {
-		# serve the static files copied into the runtime image
-		root * /srv
+		# Lightweight container readiness endpoint.
+		handle /health {
+			respond "ok" 200
+		}
 
-		# enable gzipping responses
-		encode gzip
+		# Missing built assets must return 404, never the SPA HTML document.
+		handle /assets/* {
+			root * /srv
+			file_server
+		}
 
-		# if path doesn't exist, redirect it to 'index.html' for client side routing
-		try_files {path} /index.html
-		file_server
+		handle {
+			# serve the static files copied into the runtime image
+			root * /srv
+
+			# enable gzipping responses
+			encode gzip
+
+			# if path doesn't exist, redirect it to 'index.html' for client side routing
+			try_files {path} /index.html
+			file_server
+		}
 	}
 }

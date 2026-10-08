@@ -17,7 +17,7 @@ const initialState = {
 
 export const EditNoticeRecipientPage = () => {
   const { id } = useParams();
-  const { data, isLoading, isError, error } = useGetNoticeRecipientQuery(Number(id));
+  const { currentData: data, isFetching, isError, error } = useGetNoticeRecipientQuery(Number(id));
 
   const methods = useForm<NoticeRecipient>({
     defaultValues: initialState,
@@ -34,7 +34,7 @@ export const EditNoticeRecipientPage = () => {
   }, [data, methods]);
 
   let content: React.ReactNode | null = null;
-  if (isLoading) {
+  if (isFetching && !data) {
     content = <>loading...</>;
   } else if (isError) {
     content = <>{getErrorMsg(error).message}</>;

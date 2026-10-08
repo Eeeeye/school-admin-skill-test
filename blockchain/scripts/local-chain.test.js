@@ -3,6 +3,7 @@ const { spawn } = require("node:child_process");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
+const net = require("node:net");
 const test = require("node:test");
 const { Contract, JsonRpcProvider, Wallet, id } = require("ethers");
 const { TEST_MNEMONIC } = require("./chain-config");
@@ -178,6 +179,23 @@ test("bootstrap rejects mismatched deployment metadata without overwriting it", 
     assert.deepEqual(JSON.parse(await fs.readFile(deploymentFile, "utf8")), mismatched);
   } finally {
     if (chain) await chain.stop();
+    await fs.rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("a port collision reports the original startup error and does not publish readiness", { timeout: 20000 }, async () => {
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), "certificate-chain-"));
+  const occupied = net.createServer();
+  try {
+    await new Promise((resolve, reject) => {
+      occupied.once("error", reject);
+      occupied.listen(0, "127.0.0.1", resolve);
+    });
+    await assert.rejects(startChain(directory, { LOCAL_CHAIN_PORT: String(occupied.address().port) }), /EADDRINUSE|address already in use/i);
+    await assert.rejects(fs.access(path.join(directory, "ready.json")), { code: "ENOENT" });
+    await assert.rejects(fs.access(path.join(directory, "deployment.json")), { code: "ENOENT" });
+  } finally {
+    await new Promise((resolve) => occupied.close(resolve));
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
